@@ -20,7 +20,7 @@ i = interface.Interface(structure_a = a, structure_b = b)
 
 This creates the inital interface structure, but it is still empty at this point.
 
-i = matchCells()
+i.matchCells()
 
 This creates all interface cell matches as specified by the various input options.
 
