@@ -53,12 +53,24 @@ class Structure():
             for i, item in enumerate(np.unique(type_n)):
                 type_i[type_n == item] = i + 1
 
+        """Simply placeholders for element names"""
+        elements = [ "H", "He", "Li", "Be",  "B",  "C",  "N",  "O",  "F",\
+                    "Ne", "Na", "Mg", "Al", "Si",  "P",  "S", "Cl", "Ar"]
         if type_n is None:
-            names = np.chararray(pos.shape[1], itemsize = 2)
-            names[:] = "H"
-            type_n = names
+            if type_i is None:
+                type_i = np.ones(pos.shape[0])
+                type_n = np.chararray(pos.shape[1], itemsize = 2)
+                type_n[:] = "H"
+            else:
+                type_n = np.chararray(pos.shape[1], itemsize = 2)
+                for i, item in enumerate(np.unique(type_i)):
+                    type_n[type_i == item] = elements[i]
+        else:
+            if type_i is None:
+                type_i = np.ones(type_n.shape[0])
+                for i, item in enumerate(np.unique(type_n)):
+                    type_i[type_n == item] = i + 1
 
-        if type_i is None: type_i = np.ones(pos.shape[0])
         if idx is None: idx = np.arange(pos.shape[0])
         if mass is None: mass = type_i
         if frozen is None: frozen = np.zeros((pos.shape[0], 3), dtype = bool)
@@ -133,7 +145,7 @@ class Structure():
 
 
 
-    def alignStructure(self, dim = [1, 0, 0], align = [1, 0, 0], round = False):
+    def alignStructure(self, dim = [1, 0, 0], align = [1, 0, 0], verbose = 1):
         """Function for aligning a component of the structure in a specific dimension
 
         dim = [float, float, float], the cell will be aligned to have this
@@ -170,18 +182,12 @@ class Structure():
         R = np.array([[np.cos(aRad), -np.sin(aRad), 0],
                       [np.sin(aRad),  np.cos(aRad), 0],
                       [           0,             0, 1]]) 
-        
-        """Rotate the cell along with the positions, add a small fraction to avoid 
-           values of -1E-15 were it sould be 0, only rounding keeps the negative sign"""
-        if round:
-            self.cell = np.round(np.matmul(R, self.cell) + 1E-13, 11)
-            self.pos = np.round(np.matmul(R, self.pos.T).T + 1E-13, 11)
-        else:
-            self.cell = np.matmul(R, self.cell)
-            self.pos = np.matmul(R, self.pos.T).T
+
+        self.cell = np.matmul(R, self.cell)
+        self.pos = np.matmul(R, self.pos.T).T
 
 
-    def extendStructure(self, x = 1, y = 1, z = 1, reset_index = False, verbose = 0):
+    def extendStructure(self, x = 1, y = 1, z = 1, reset_index = False, verbose = 1):
         """Function for repeating the cell in x, y or z direction"""
 
         """Change to direct coordinates"""
@@ -257,3 +263,18 @@ class Structure():
         """c = M*d"""
         self.pos = np.matmul(self.cell, self.pos.T).T
         self.pos_type = "c"
+
+
+    def writeStructure(self, filename = None, format = "lammps", verbose = 1):
+        """Function for writing the structure to specified file format"""
+
+        if filename is None: filename = "Structure.%s" % format
+
+        """Write the structure object to specified file"""
+        file_io.writeData(filename = filename, atoms = self, format = format)
+        
+        if verbose > 0:
+            string = "Structure written to file: %s (%s-format)" % (filename, format)
+            print("=" * len(string))
+            print(string)
+            print("=" * len(string))

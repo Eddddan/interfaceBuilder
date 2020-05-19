@@ -2,21 +2,22 @@
 import pickle
 import inputs
 import file_io
+import structure
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 
 def loadInterfaces(filename, verbose = 1):
-        """Function for loading an interface connection saved to a .pkl file"""
+    """Function for loading an interface connection saved to a .pkl file"""
 
-        with open(filename, "rb") as rf:
-            obj = pickle.load(rf)
+    with open(filename, "rb") as rf:
+        obj = pickle.load(rf)
 
-        if verbose > 0:
-            print("Loading data from: %s" % filename)
+    if verbose > 0:
+        print("Loading data from: %s" % filename)
 
-        return obj
+    return obj
 
 
 def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.3],\
@@ -236,6 +237,94 @@ def getAngles(a, b):
                        np.linalg.norm(b, axis = 1)))
     
     return ang_ab
+
+
+
+def extendCell(base, rep, pos, spec):
+    """Function for extending a unitcell.
+       base - base for the cell
+       rep  - [xLo, xHi, yLo, yHi, zLo, zHi]
+       pos  - positions, cartesian in - cartesian out
+       spec - Atomic species"""
+
+    """Convert positions to direct coordinates"""
+    pos_d = np.matmul(np.linalg.inv(base), pos)
+
+    """Set up the extension"""
+    m = np.arange(rep[0], rep[1] + 1)
+    n = np.arange(rep[2], rep[3] + 1)
+    k = np.arange(np.floor(rep[4]), np.ceil(rep[5]) + 1)
+
+    """Build all permutations of the cell repetitions"""
+    ext = np.array([np.tile(m, n.shape[0]),\
+                    np.repeat(n, m.shape[0]),\
+                    np.zeros((m.shape[0] * n.shape[0]))])
+    ext = np.tile(ext, (1, k.shape[0]))
+    ext[2, :] = ext[2, :] + np.repeat(k, m.shape[0] * n.shape[0])
+    ext = np.repeat(ext, pos_d.shape[1], axis = 1)
+
+    """Extend all positions to the repeated cells"""
+    pos_d_ext = (ext + np.tile(pos_d, (1, np.int(ext.shape[1] / pos_d.shape[1]))))
+
+    """Extend the atomic species tag along with the positions"""
+    spec_ext = np.tile(spec, (np.int(ext.shape[1] / pos_d.shape[1])))
+
+    """Remove all atoms in the z direction outside the supplied max/min z value"""
+    keep = (pos_d_ext[2, :] >= rep[4]) * (pos_d_ext[2, :] < (rep[5] + 1))
+    pos_d_ext = pos_d_ext[:, keep]
+    spec_ext = spec_ext[keep]
+
+    """Transform from direct coordinates to Cartesian coordinates"""
+    pos_ext = np.matmul(base, pos_d_ext)
+
+    return pos_ext, spec_ext
+
+
+
+def getTranslation(translate, surface, verbose = 1):
+    """Function for getting translation vectors for specific surface"""
+
+    if type(translate) == np.ndarray or type(translate) == list:
+        if np.shape(translate)[0] != 2:
+            return np.array([0, 0, 0])
+        else:
+            T = np.zeros(3)
+            T[0:2] = translate
+            return T
+
+    if surface == "0001":
+        if translate == 1:
+            site = "Top"
+            T = np.array([0, 0, 0])
+
+        elif translate == 2:
+            site = "Hollow-On"
+            T = np.array([2/3, 1/3, 0])
+
+        elif translate == 3:
+            site = "Hollow-Off"
+            T = np.array([1/3, -1/3, 0])
+
+        elif translate == 4:
+            site = "Bridge"
+            T = np.array([0, 1/2, 0])
+            
+    if verbose > 0:
+        string = "Surface: %s | Translation made to site: %s"\
+                 % (surface, site)
+        print("=" * len(string))
+        print(string)
+        print("=" * len(string))
+
+    return T
+
+
+
+
+def save_fig(filename = "Interface_figure.pdf", format = "pdf", dpi = 100, verbose = 0):
+    """Function for saving figures"""
+    plt.savefig(filename, format = format, dpi = dpi)
+    if verbose > 0: print("Saved figure: %s" % filename)
 
 
 
@@ -599,13 +688,6 @@ class Interface():
 
         """Sort the interaces based on number of atoms"""
         self.sortInterfaces()
-
-
-
-    def save_fig(filename = "Interface_figure.pdf", format = "pdf", dpi = 100, verbose = 0):
-        """Function for saving figures"""
-        if verbose > 0: print("Saving figure: %s" % filename)
-        plt.savefig(filename, format = format, dpi = dpi)
 
 
 
@@ -1012,3 +1094,146 @@ class Interface():
             print("\n" + "=" * len(string))
             print("%s" % string)
             print("=" * len(string) + "\n")
+
+
+
+
+
+    def buildInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
+                       verbose = 1, vacuum = 0, translate = None,\
+                       surface = None):
+        """Function for build a specific interface"""
+
+        if verbose > 0:
+            self.printInterfaces(idx = idx)
+
+        """The strained new basis"""
+        F = np.zeros((3, 3))
+        F[2, 2] = self.base_1[2, 2] * z_1 + self.base_2[2, 2] * z_2 + d
+        F[0:2, 0:2] = self.cell_1[idx, :, :]
+
+        """The unstrained new basis"""
+        D = np.zeros((3, 3))
+        D[2, 2] = self.base_2[2, 2] * z_2
+        D[0:2, 0:2] = self.cell_2[idx, :, :]
+
+        """Working on interface A"""
+        """Set up the bottom interface with the correct repetitions"""
+        rep_1 = np.zeros((3, 3))
+        rep_1[0:2, 0:2] = self.rep_1[idx, :, :]
+
+        """Set all hi-lo limits for the cell repetitions"""
+        h = 5
+        rep_1 = [rep_1[0, :].min() - h, rep_1[0, :].max() + h,\
+                 rep_1[1, :].min() - h, rep_1[1, :].max() + h,\
+                 0, z_1 - 1]
+
+        """Extend the cell as spcefied"""
+        pos_1_ext, spec_1 = extendCell(base = self.base_1, rep = rep_1,\
+                                       pos = self.pos_1.T, spec = self.spec_1)
+
+        """Working on interface B"""    
+        """Set up the top interface with the correct repetitions and rotation"""
+        rep_2 = np.zeros((3, 3))
+        rep_2[0:2, 0:2] = self.rep_2[idx, :, :]
+
+        """Set all hi-lo limits for the cell repetitions"""
+        h = 5
+        rep_2 = [rep_2[0, :].min() - h, rep_2[0, :].max() + h,\
+                 rep_2[1, :].min() - h, rep_2[1, :].max() + h,\
+                 0, z_2 - 1]
+
+        """Extend the cell as specified"""
+        pos_2_ext, spec_2 = extendCell(base = self.base_2, rep = rep_2,\
+                                       pos = self.pos_2.T, spec = self.spec_2)
+
+        """Initial rotation"""
+        initRot = np.deg2rad(self.ang[idx])
+
+        """Rotate the positions pos_rot = R*pos"""
+        pos_2_ext_rot = rotate(pos_2_ext, initRot, verbose = verbose - 1)
+
+        """Convert to direct coordinates in the unstrained D base"""
+        pos_2_d_D = np.matmul(np.linalg.inv(D), pos_2_ext_rot)
+
+        """Convert the cell back to Cartesian using the strained basis.
+        But with the Z parameter as in the D cell"""
+        temp_F = F.copy()
+        temp_F[2, 2] = D[2, 2]
+        pos_2_F = np.matmul(temp_F, pos_2_d_D)
+
+        """Combine the positions of the two cells"""
+        pos = np.zeros((3, pos_1_ext.shape[1] + pos_2_F.shape[1]))
+        pos[:, :pos_1_ext.shape[1]] = pos_1_ext
+
+        """Shift Z positions of top cell to (cell_A + d)"""
+        pos_2_F[2, :] = pos_2_F[2, :] + self.base_1[2, 2] * z_1 + d
+        pos[:, pos_1_ext.shape[1]:] = pos_2_F
+
+        """If a translation is specified shift (x,y) coordinates of top cell accordingly""" 
+        if translate is not None:
+            T = getTranslation(translate, surface, verbose = verbose)
+            cT = np.matmul(self.base_1, T)
+            pos[:, pos_1_ext.shape[1]:] = pos[:, pos_1_ext.shape[1]:] + cT[:, np.newaxis]
+            if verbose: 
+                print("Translating top surface:\n"\
+                          "[%.2f, %.2f, %.2f] in cartesian or "\
+                          "[%.2f, %.2f, %.2f] in single cell direct-coordinates"
+                      % (cT[0], cT[1], cT[2], T[0], T[1], T[2]))
+
+        """Convert the entire new cell to direct coordinates, add d above as well"""
+        F[2, 2] += d
+        pos_d = np.matmul(np.linalg.inv(F), pos)
+
+        """Remove all positions outside [0, 1)"""
+        keep = np.all(pos_d < 1, axis = 0) * np.all(pos_d >= 0, axis = 0)
+        pos_d = pos_d[:, keep]
+        species = np.concatenate((spec_1, spec_2))[keep]
+
+        """Return to cartesian coordinates and change shape to (...,3)"""
+        pos = np.matmul(F, pos_d).T
+
+        """Add vacuum if specified"""
+        F[2, 2] = F[2, 2] + vacuum
+        if verbose: print("Distance added (between,above): %.2f | Vacuum added (above): %.2f"\
+                          % (d, vacuum))
+
+        return F, pos, species
+
+
+
+    def exportInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
+                        verbose = 1, mass = None, format = "lammps",\
+                        filename = None, vacuum = 0, translate = None,\
+                        surface = None):
+        """Function for writing an interface to a specific file format"""
+
+        if filename is None:
+            if translate is None:
+                filename = "interface_%s.%s" % (idx, format)
+            else:
+                filename = "interface_%s_T%s.%s" % (idx, translate, format)
+
+        """Build the selected interface"""
+        base, pos, type_n = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
+                                                verbose = verbose, vacuum = vacuum,\
+                                                translate = translate, surface = surface)
+
+        """Sort first based on type then Z-position then Y-position"""
+        ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
+        type_n = type_n[ls]
+        pos = pos[ls]
+
+        """After sorting, index all positions"""
+        index = np.arange(type_n.shape[0])
+
+        """Build an Atoms object"""
+        atoms = structure.Structure(cell = base, pos = pos, type_n = type_n, type_i = None,\
+                                    mass = mass, idx = index, filename = filename, pos_type = "c")
+
+        """Align the first dimension to the x-axis"""
+        atoms.alignStructure(dim = [1, 0, 0], align = [1, 0, 0])
+
+        """Write the structure object to specified file"""
+        atoms.writeStructure(filename = filename, format = format, verbose = verbose)
+        return atoms
