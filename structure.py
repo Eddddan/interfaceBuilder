@@ -268,7 +268,11 @@ class Structure():
     def writeStructure(self, filename = None, format = "lammps", verbose = 1):
         """Function for writing the structure to specified file format"""
 
-        if filename is None: filename = "Structure.%s" % format
+        if filename is None: 
+            if self.filename is None:
+                filename = "Structure.%s" % format
+            else:
+                filename = self.filename
 
         """Write the structure object to specified file"""
         file_io.writeData(filename = filename, atoms = self, format = format)
