@@ -19,30 +19,34 @@ def loadInterfaces(filename, verbose = 1):
 
 def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
                      trace = 0, verbose = 1, current_iter = 0,\
-                     max_iter = 500, tol = 1e-8):
+                     max_iter = 500, tol = 1e-8, endpoint = "under"):
 
     done = "Fail"
     current = np.sum((y - C * x ** E) < 0)
-
-    if current_iter > max_iter:
-        return C, E, current, done
 
     if verbose > 0:
         string = "Iteration: %i/%i | Matches: %i/%i | C: %.4e | dC: %.4e | Trace: %3i"\
                  % (current_iter, max_iter, current, target, C, dC, trace)
         infoPrint(string)
 
-    current_iter += 1
-
     if current == target or dC < tol:
         if current == target:
             done = "Matches"
+            return C, E, current, done, current_iter
         else:
-            done = "Tolerence"
+            if current < target and endpoint.lower() == "under":
+                done = "Tolerence"
+                return C, E, current, done, current_iter
+            elif current > target and endpoint.lower() == "over":
+                done = "Tolerence"
+                return C, E, current, done, current_iter
 
-        return C, E, current, done
+    if current_iter > max_iter:
+        return C, E, current, done, current_iter
 
-    elif current < target:
+    current_iter += 1
+
+    if current < target:
         if trace < 0: 
             trace = 0
             dC *= 0.5
@@ -51,9 +55,9 @@ def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
             dC *= 1.05
 
         C += dC
-        C, E, current, done = iterateNrMatches(x, y, current, target, C, E, dC = dC,\
+        C, E, current, done, current_iter = iterateNrMatches(x, y, current, target, C, E, dC = dC,\
                                       verbose = verbose, max_iter = max_iter, trace = trace,\
-                                      current_iter = current_iter, tol = tol)
+                                      current_iter = current_iter, tol = tol, endpoint = endpoint)
 
     elif current > target:
         if trace > 0: 
@@ -64,12 +68,12 @@ def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
             dC *= 1.05
 
         C -= dC
-        C, E, current, done = iterateNrMatches(x, y, current, target, C, E, dC = dC,\
+        C, E, current, done, current_iter = iterateNrMatches(x, y, current, target, C, E, dC = dC,\
                                       verbose = verbose, max_iter = max_iter, trace = trace,\
-                                      current_iter = current_iter, tol = tol)
+                                      current_iter = current_iter, tol = tol, endpoint = endpoint)
 
 
-    return C, E, current, done
+    return C, E, current, done, current_iter
 
 
 

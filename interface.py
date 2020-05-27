@@ -154,7 +154,7 @@ class Interface():
 
     def getAtomStrainMatches(self, matches = 100, const = None, exp = 1,\
                              strain = "eps_mas", verbose = 1, max_iter = 500,\
-                             tol = 1e-8):
+                             tol = 1e-8, endpoint = "under"):
         """Function for returning interfaces matching the critera
            A * abs(strain) ** B"""
 
@@ -173,13 +173,16 @@ class Interface():
         atoms = self.atoms.copy()
 
         current = np.sum((atoms - const * eps ** exp) < 0)
-        C, E, current, done = ut.iterateNrMatches(eps, atoms, current = current, target = matches,\
+
+        """Recursive function to find the correct fit to get specified nr of matches"""
+        C, E, current, done, iter = ut.iterateNrMatches(eps, atoms, current = current, target = matches,\
                                                   C = const, E = exp, dC = 0.1, verbose = verbose - 1,\
-                                                  max_iter = max_iter, current_iter = 0, tol = tol)
+                                                  max_iter = max_iter, current_iter = 0, tol = tol,\
+                                                  endpoint = endpoint)
 
         if verbose > 0:
-            string = "Matches (%i): %i | const: %.3e | exp: %.3e | Status: %s"\
-                 % (matches, current, C, E, done)
+            string = "Iterations: %i | Matches (%i): %i | const: %.3e | exp: %.3e | Status: %s"\
+                 % (iter, matches, current, C, E, done)
             ut.infoPrint(string)
 
         return C, E
