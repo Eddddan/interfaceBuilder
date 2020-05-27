@@ -7,12 +7,12 @@ def getInputs(lattice):
     if lattice == "WC0001_L":
         """HCP WC Lattice with 0001 surface relaxed using LAMMPS"""
         """Updated 2020-05-13"""
-        cell = np.array([[2.91720,  -1.4586, 0       ],\
-                             [      0, 2.512963, 0       ],\
-                             [      0,        0, 2.848620]])
+        cell = np.array([[2.91658917, -1.45829470, 0         ],\
+                         [       0,    2.52584029, 0         ],\
+                         [       0,             0, 2.81210202]])
 
         pos = np.array([[       0,        0,        0],\
-                            [1.450715, 0.837571, 1.424310]])
+                        [1.45822170, 0.84190487, 1.40605101]])
 
         spec = np.chararray(shape = 2, itemsize = 2)
         spec[0] = 'W'

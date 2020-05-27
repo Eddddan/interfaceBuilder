@@ -15,7 +15,65 @@ def loadInterfaces(filename, verbose = 1):
     return obj
 
 
-def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.3],\
+
+
+def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
+                     trace = 0, verbose = 1, current_iter = 0,\
+                     max_iter = 500, tol = 1e-8):
+
+    done = "Fail"
+    current = np.sum((y - C * x ** E) < 0)
+
+    if current_iter > max_iter:
+        return C, E, current, done
+
+    if verbose > 0:
+        string = "Iteration: %i/%i | Matches: %i/%i | C: %.4e | dC: %.4e | Trace: %3i"\
+                 % (current_iter, max_iter, current, target, C, dC, trace)
+        infoPrint(string)
+
+    current_iter += 1
+
+    if current == target or dC < tol:
+        if current == target:
+            done = "Matches"
+        else:
+            done = "Tolerence"
+
+        return C, E, current, done
+
+    elif current < target:
+        if trace < 0: 
+            trace = 0
+            dC *= 0.5
+        else:
+            trace += 1
+            dC *= 1.05
+
+        C += dC
+        C, E, current, done = iterateNrMatches(x, y, current, target, C, E, dC = dC,\
+                                      verbose = verbose, max_iter = max_iter, trace = trace,\
+                                      current_iter = current_iter, tol = tol)
+
+    elif current > target:
+        if trace > 0: 
+            trace = 0
+            dC *= 0.5
+        else:
+            trace -= 1
+            dC *= 1.05
+
+        C -= dC
+        C, E, current, done = iterateNrMatches(x, y, current, target, C, E, dC = dC,\
+                                      verbose = verbose, max_iter = max_iter, trace = trace,\
+                                      current_iter = current_iter, tol = tol)
+
+
+    return C, E, current, done
+
+
+
+def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.4],\
                    lw = 0.5):
     """Function for adding a lattice grid when plotting interfaces"""
 
@@ -24,27 +82,26 @@ def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.3],\
 
     """Rotate the lattice if specified"""
     aRad = np.deg2rad(rot)
-    R = np.round(np.array([[np.cos(aRad), -np.sin(aRad)],
-                           [np.sin(aRad),  np.cos(aRad)]]) + 1E-15, 5)
+    R = np.array([[np.cos(aRad), -np.sin(aRad)],
+                  [np.sin(aRad),  np.cos(aRad)]])
 
     lat = np.matmul(R, lat)
 
     a1 = lat[0:2, [0]]
     a2 = lat[0:2, [1]]
 
-    norm = np.ceil(np.linalg.norm(lat[0:2, 0:2], axis = 0))
-
     scale = np.zeros((2, 4))
     scale[0:2, 0:2] = latRep
     scale[:, 2] = np.sum(scale[0:2, 0:2], axis = 1)
 
-    nx_lo = np.min(scale[0, :]) - norm[0]; nx_hi = np.max(scale[0, :]) + norm[0]
-    ny_lo = np.min(scale[1, :]) - norm[1]; ny_hi = np.max(scale[1, :]) + norm[1]
+    nx_lo = np.min(scale[0, :]) 
+    nx_hi = np.max(scale[0, :])
+    ny_lo = np.min(scale[1, :])
+    ny_hi = np.max(scale[1, :])
 
-    extend = 8
-    nX = np.arange(nx_lo - extend, nx_hi + extend)
-    nY = np.arange(ny_lo - extend, ny_hi + extend)
-
+    extend = 10
+    nX = np.arange(nx_lo - extend, nx_hi + 1 + extend)
+    nY = np.arange(ny_lo - extend, ny_hi + 1 + extend)
     x = a1 * nX
     y = a2 * nY
 
@@ -58,10 +115,13 @@ def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.3],\
 
 
 
-def infoPrint(string, sep = "="):
-    print(sep * len(string))
+def infoPrint(string, sep = "=", sep_before = True, sep_after = True,\
+              space_before = False, space_after = False):
+    if space_before: print("")
+    if sep_before: print(sep * len(string))
     print(string)
-    print(sep * len(string))
+    if sep_after: print(sep * len(string))
+    if space_after: print("")
     
 
 

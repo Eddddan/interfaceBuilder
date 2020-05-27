@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
 class Interface():
     """
     Class for holdiding a collection of generated interfaces.
@@ -128,21 +127,112 @@ class Interface():
 
 
 
-    def getAtomStrainExpression(self, strain = "eps_mas", exp = 1):
-        """Get the atoms vs strain property, i.e.
-           strain * atoms^exp"""
+    def getAtomStrainRatio(self, strain = "eps_mas", const = None, exp = 1, verbose = 1):
+        """Get the property atoms - A * abs(strain) ** B"""
+
+        if const is None:
+            const, exp = self.getAtomStrainExpression(strain = strain, verbose = verbose - 1)
+
+        if verbose > 0: 
+            string = "Returning values of expression: atoms - A * abs(strain)^B with A,B: %.3e, %.3e"\
+                     % (const, exp)
+            ut.infoPrint(string)
 
         if strain.lower() == "eps_11":
-            return self.eps_11 * (self.atoms ** exp)
+            return self.atoms - const * np.abs(self.eps_11) ** exp
         elif strain.lower() == "eps_22":
-            return self.eps_22 * (self.atoms ** exp)
+            return self.atoms - const * np.abs(self.eps_22) ** exp
         elif strain.lower() == "eps_12":
-            return self.eps_12 * (self.atoms ** exp)
+            return self.atoms - const * np.abs(self.eps_12) ** exp
         elif strain.lower() == "eps_mas":
-            return self.eps_mas * (self.atoms ** exp)
+            return self.atoms - const * self.eps_mas ** exp
+
         else:
             print("Unknown option: %s" % strain)
 
+
+
+    def getAtomStrainMatches(self, matches = 100, const = None, exp = 1,\
+                             strain = "eps_mas", verbose = 1, max_iter = 500,\
+                             tol = 1e-8):
+        """Function for returning interfaces matching the critera
+           A * abs(strain) ** B"""
+
+        if const is None:
+            const, exp = self.getAtomStrainExpression(strain = strain, verbose = verbose - 1)
+
+        if strain == "eps_11":
+            eps = self.eps_11.copy()
+        elif strain == "eps_22":
+            eps = self.eps_22.copy()
+        elif strain == "eps_12":
+            eps = self.eps_12.copy()
+        elif strain == "eps_mas":
+            eps = self.eps_mas.copy()
+
+        atoms = self.atoms.copy()
+
+        current = np.sum((atoms - const * eps ** exp) < 0)
+        C, E, current, done = ut.iterateNrMatches(eps, atoms, current = current, target = matches,\
+                                                  C = const, E = exp, dC = 0.1, verbose = verbose - 1,\
+                                                  max_iter = max_iter, current_iter = 0, tol = tol)
+
+        if verbose > 0:
+            string = "Matches (%i): %i | const: %.3e | exp: %.3e | Status: %s"\
+                 % (matches, current, C, E, done)
+            ut.infoPrint(string)
+
+        return C, E
+    
+
+
+    def getAtomStrainExpression(self, strain = "eps_mas", verbose = 1):
+        """Get the curve from min(log(abs(strain))) --> min(log(atoms))"""
+
+        if strain.lower() == "eps_11":
+            si1 = np.lexsort((self.atoms, np.abs(self.eps_11)))[0]
+            si2 = np.lexsort((np.abs(self.eps_11), self.atoms))[0]
+
+            eps = np.array([np.abs(self.eps_11[si1]), np.abs(self.eps_11[si2])])
+            atoms = np.array([self.atoms[si1], self.atoms[si2]])
+
+        elif strain.lower() == "eps_22":
+            si1 = np.lexsort((self.atoms, np.abs(self.eps_22)))[0]
+            si2 = np.lexsort((np.abs(self.eps_22), self.atoms))[0]
+
+            eps = np.array([np.abs(self.eps_22[si1]), np.abs(self.eps_22[si2])])
+            atoms = np.array([self.atoms[si1], self.atoms[si2]])
+
+        elif strain.lower() == "eps_12":
+            si1 = np.lexsort((self.atoms, np.abs(self.eps_12)))[0]
+            si2 = np.lexsort((np.abs(self.eps_12), self.atoms))[0]
+
+            eps = np.array([np.abs(self.eps_12[si1]), np.abs(self.eps_12[si2])])
+            atoms = np.array([self.atoms[si1], self.atoms[si2]])
+
+        elif strain.lower() == "eps_mas":
+            si1 = np.lexsort((self.atoms, self.eps_mas))[0]
+            si2 = np.lexsort((self.eps_mas, self.atoms))[0]
+
+            eps = np.array([self.eps_mas[si1], self.eps_mas[si2]])
+            atoms = np.array([self.atoms[si1], self.atoms[si2]])
+
+        else:
+            print("Unknown option: %s" % strain)
+            return
+
+        eps = np.log(eps)
+        atoms = np.log(atoms)
+        
+        """In y = A*x**B find A and B"""
+        B = (atoms[1] - atoms[0]) / (eps[1] - eps[0])
+        A = np.exp(atoms[0] - B * eps[0])
+        
+        if verbose > 0:
+            string = "Expression found (A * x^B): %.3e * x^%.3e" % (A, B)
+            ut.infoPrint(string)
+
+        return A, B
 
 
     def getAreas(self):
@@ -302,12 +392,11 @@ class Interface():
 
         """Check to make sure the calculated nr of atoms are integers, otherwise flag it""" 
         tol = 7
-        warn = (atoms != np.round(rawAtoms, tol))
-        if np.sum(warn) != 0:
-            index = np.arange(atoms.shape[0])[warn]
+        flag = (atoms != np.round(rawAtoms, tol))
+        if np.sum(flag) != 0:
+            index = np.arange(atoms.shape[0])[flag]
             string = "None integer number of atoms calculated for the following interfaces"
-            print(string)
-            print("=" * len(string))
+            ut.infoPrint(string, sep_before = False)
             for i in index:
                 print("Index: %6i | Nr atoms: %14.10f" % (i, rawAtoms[i]))
 
@@ -520,7 +609,6 @@ class Interface():
 
         mat = self.cell_1[idx, :, :]
         top = self.cell_2[idx, :, :]
-        rep = self.rep_1[idx, :, :]
         rot_1 = 0
         rot_2 = self.ang[idx]
         aDeg = 0
@@ -542,13 +630,12 @@ class Interface():
             rot_2 = rot_2 + np.rad2deg(bRad)
 
         if background.lower() == "cell_1" or background.lower() == "both":
-            ut.overlayLattice(lat = self.base_1, latRep = rep, rot = rot_1,\
-                           hAx = hAx, ls = '-', c = [0, 0, 0, 0.4], lw = 0.5)
+            ut.overlayLattice(lat = self.base_1, latRep = self.rep_1[idx, :, :],\
+                              rot = rot_1, hAx = hAx, ls = '-')
 
         if background.lower() == "cell_2" or background.lower() == "both":
-            ut.overlayLattice(lat = self.base_2, latRep = rep,\
-                           rot = rot_2, hAx = hAx, ls = '--',\
-                           c = [0, 0, 0, 0.4], lw = 0.5)
+            ut.overlayLattice(lat = self.base_2, latRep = self.rep_2[idx, :, :],\
+                              rot = rot_2, hAx = hAx, ls = '--')
 
 
         """Origo to a"""
@@ -652,7 +739,7 @@ class Interface():
 
 
 
-    def plotCombinations(self, limit = None, idx = None, exp = 1,\
+    def plotCombinations(self, idx = None, const = None, exp = 1,\
                          mark = None, save = False, format = "pdf",\
                          dpi = 100, handle = False, eps = "eps_mas",\
                          verbose = 1, hAx = None):
@@ -668,13 +755,13 @@ class Interface():
         atoms = self.atoms
 
         if eps == "eps_11":
-            strain = self.eps_11
+            strain = np.abs(self.eps_11)
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps == "eps_22":
-            strain = self.eps_22
+            strain = np.abs(self.eps_22)
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps == "eps_12":
-            strain = self.eps_12
+            strain = np.abs(self.eps_12)
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
             strain = self.eps_mas
@@ -694,8 +781,10 @@ class Interface():
             strain = strain[np.logical_not(mask)]
             atoms = atoms[np.logical_not(mask)]
 
-        if limit is not None:
-            low = (strain * (atoms ** exp)) < limit
+        if const is not None:
+
+            """Find atom/strain pairs below limit set by atoms = A * strain ** exp"""
+            low = atoms < (const * strain ** exp)
             hi = np.logical_not(low)
 
             hAx.plot(strain[low] * 100, atoms[low], color = 'b', marker = ".",\
@@ -703,6 +792,14 @@ class Interface():
 
             hAx.plot(strain[hi] * 100, atoms[hi], color = 'r', marker = ".",\
                      linestyle = "None", markersize = 2)
+
+            """Plot the dividing line for the specified limit"""
+            j = np.lexsort((atoms, strain))[0]
+            k = np.lexsort((strain, atoms))[0]
+            x = np.logspace(np.log(strain[j] * 0.9), np.log(strain[k] * 1.1), 1000, base = np.exp(1))
+
+            hAx.plot(x * 100, const * x ** exp, linewidth = 0.5, color = 'k')
+
             if verbose > 0:
                 print("Items below: %i | Items above: %i" % (np.sum(low), np.sum(hi)))
         else:
@@ -711,14 +808,14 @@ class Interface():
 
         if mark is not None:
             hAx.plot(strain_m * 100, atoms_m, color = 'g', marker = ".",\
-                     linestyle = "None", markersize = 2.5)
+                     linestyle = "None", markersize = 3)
             if verbose > 0:
-                print("Items marked: %i" % eps_m.shape[0])
+                print("Items marked: %i" % strain_m.shape[0])
 
         hAx.set_xscale("log")
         hAx.set_yscale("log")
         hAx.set_ylabel("Nr of Atoms")
-        hAx.set_xlabel("Strain, %s" % eps)
+        hAx.set_xlabel(r"Strain, %s, (%%)" % eps)
         hAx.set_title("Created Interfaces")
 
         if handle:
@@ -829,7 +926,7 @@ class Interface():
         rep_1[0:2, 0:2] = self.rep_1[idx, :, :]
 
         """Set all hi-lo limits for the cell repetitions"""
-        h = 5
+        h = 10
         rep_1 = [rep_1[0, :].min() - h, rep_1[0, :].max() + h,\
                  rep_1[1, :].min() - h, rep_1[1, :].max() + h,\
                  0, z_1 - 1]
@@ -844,7 +941,7 @@ class Interface():
         rep_2[0:2, 0:2] = self.rep_2[idx, :, :]
 
         """Set all hi-lo limits for the cell repetitions"""
-        h = 5
+        h = 10
         rep_2 = [rep_2[0, :].min() - h, rep_2[0, :].max() + h,\
                  rep_2[1, :].min() - h, rep_2[1, :].max() + h,\
                  0, z_2 - 1]
@@ -891,6 +988,9 @@ class Interface():
         pos_d = np.matmul(np.linalg.inv(F), pos)
 
         """Remove all positions outside [0, 1)"""
+        pos_d = np.round(pos_d, 8)
+        F = np.round(F, 8)
+
         keep = np.all(pos_d < 1, axis = 0) * np.all(pos_d >= 0, axis = 0)
         pos_d = pos_d[:, keep]
         species = np.concatenate((spec_1, spec_2))[keep]
@@ -946,6 +1046,103 @@ class Interface():
 
 
 
+    def buildSurface(self, idx = 0, surface = 1, z = 1, verbose = 1, vacuum = 0):
+        """Function for build a specific interface"""
+        
+        if verbose > 0:
+            self.printInterfaces(idx = idx)
+            string = "Building surface nr %i in the interface shown above" % surface
+            ut.infoPrint(string)
+
+        """Basis for the selected surface, and the cell repetitions"""
+        rep = np.zeros((3, 3))
+        new_base = np.zeros((3, 3))
+        if surface == 1:
+            old_base = self.base_1
+            spec = self.spec_1
+            pos = self.pos_1
+
+            new_base[2, 2] = self.base_1[2, 2] * z
+            new_base[0:2, 0:2] = self.cell_1[idx, :, :]
+            
+            rep[0:2, 0:2] = self.rep_1[idx, :, :]
+        elif surface == 2:
+            old_base = self.base_2
+            spec = self.spec_2
+            pos = self.pos_2
+
+            new_base[2, 2] = self.base_2[2, 2] * z
+            new_base[0:2, 0:2] = self.cell_2[idx, :, :]
+
+            rep[0:2, 0:2] = self.rep_2[idx, :, :]
+
+        """Set all hi-lo limits for the cell repetitions"""
+        h = 10
+        rep = [rep[0, :].min() - h, rep[0, :].max() + h,\
+               rep[1, :].min() - h, rep[1, :].max() + h,\
+               0, z - 1]
+
+        """Extend the cell as spcefied"""
+        pos_ext, spec_ext = ut.extendCell(base = old_base, rep = rep,\
+                                          pos = pos.T, spec = spec)
+
+        """Convert the entire new cell to direct coordinates"""
+        pos_d = np.matmul(np.linalg.inv(new_base), pos_ext)
+
+        """Remove all positions outside [0, 1)"""
+        pos_d = np.round(pos_d, 8)
+        new_base = np.round(new_base, 8)
+
+        keep = np.all(pos_d < 1, axis = 0) * np.all(pos_d >= 0, axis = 0)
+        pos_d = pos_d[:, keep]
+        species = spec_ext[keep]
+
+        """Return to cartesian coordinates and change shape to (...,3)"""
+        pos = np.matmul(new_base, pos_d).T
+
+        """Add vacuum if specified"""
+        new_base[2, 2] = new_base[2, 2] + vacuum
+        if verbose: 
+            string = "Vacuum added: %.2f"\
+                     % (vacuum)
+            ut.infoPrint(string)
+
+        return new_base, pos, species
+
+
+
+    def exportSurface(self, idx = 0, z = 1, verbose = 1, mass = None, format = "lammps",\
+                        filename = None, vacuum = 0, surface = 1):
+        """Function for writing an interface to a specific file format"""
+
+        if filename is None:
+            filename = "surface_%s_S%s.%s" % (idx, surface, format)
+
+        """Build the selected interface"""
+        base, pos, type_n = self.buildSurface(idx = idx, z = z, verbose = verbose,\
+                                              vacuum = vacuum, surface = surface)
+
+        """Sort first based on type then Z-position then Y-position"""
+        ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
+        type_n = type_n[ls]
+        pos = pos[ls]
+
+        """After sorting, index all positions"""
+        index = np.arange(type_n.shape[0])
+
+        """Build an Atoms object"""
+        atoms = structure.Structure(cell = base, pos = pos, type_n = type_n, type_i = None,\
+                                    mass = mass, idx = index, filename = filename, pos_type = "c")
+
+        """Align the first dimension to the x-axis"""
+        atoms.alignStructure(dim = [1, 0, 0], align = [1, 0, 0])
+
+        """Write the structure object to specified file"""
+        atoms.writeStructure(filename = filename, format = format, verbose = verbose)
+
+
+
+
     def buildInterfaceStructure(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
                                 verbose = 1, mass = None, filename = None,\
                                 vacuum = 0, translate = None, surface = None):
@@ -961,6 +1158,37 @@ class Interface():
         base, pos, type_n = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
                                                 verbose = verbose, vacuum = vacuum,\
                                                 translate = translate, surface = surface)
+
+        """Sort first based on type then Z-position then Y-position"""
+        ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
+        type_n = type_n[ls]
+        pos = pos[ls]
+
+        """After sorting, index all positions"""
+        index = np.arange(type_n.shape[0])
+
+        """Build an Atoms object"""
+        atoms = structure.Structure(cell = base, pos = pos, type_n = type_n, type_i = None,\
+                                    mass = mass, idx = index, filename = filename, pos_type = "c")
+
+        """Align the first dimension to the x-axis"""
+        atoms.alignStructure(dim = [1, 0, 0], align = [1, 0, 0])
+
+        """Retrun the structure object"""
+        return atoms
+
+
+
+    def buildSurfaceStructure(self, idx = 0, z = 1, verbose = 1, mass = None,\
+                              filename = None, vacuum = 0, surface = None):
+        """Function for writing an interface to a specific file format"""
+
+        if filename is None:
+            filename = "SurfaceStructure_%s_S%s" % (idx, surface)
+
+        """Build the selected interface"""
+        base, pos, type_n = self.buildSurface(idx = idx, z = z, verbose = verbose,\
+                                              vacuum = vacuum, surface = surface)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))

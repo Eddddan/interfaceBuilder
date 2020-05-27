@@ -24,10 +24,6 @@ bs = ["0001", "10-10"]
 parser.add_argument("-bs", "--bottom_surface", required = True, choices = bs,\
                     help = "Index of bottom surface")
 
-ts = ["100", "110", "111"]
-parser.add_argument("-ts", "--top_surface", required = False, choices = ts,\
-                    help = "Index of top surface")
-
 parser.add_argument("-t", "--translate", nargs = "+", default = [0], type = int,\
                     help = "Index of translation applied to the interface")
 
