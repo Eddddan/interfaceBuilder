@@ -1,6 +1,7 @@
 
 import pickle
 import numpy as np
+import matplotlib.pyplot as plt
 
 def loadInterfaces(filename, verbose = 1):
     """Function for loading an interface connection saved to a .pkl file"""

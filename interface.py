@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+
+
 class Interface():
     """
     Class for holdiding a collection of generated interfaces.
@@ -586,10 +588,10 @@ class Interface():
                 add = ""
                 for i in idx:
                     add += "_%s" % i
-                save_fig(filename = "interface%s.%s" % (add, format), format = format,\
+                ut.save_fig(filename = "interface%s.%s" % (add, format), format = format,\
                          dpi = dpi, verbose = verbose)
             else:
-                save_fig(filename = save, format = format, dpi = dpi,\
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
                          verbose = verbose)
             plt.close()
         else:
@@ -731,10 +733,10 @@ class Interface():
         plt.tight_layout()
         if save:
             if save is True:
-                save_fig(filename = "interface_%s.%s" % (idx, format),\
+                ut.save_fig(filename = "interface_%s.%s" % (idx, format),\
                          format = format, dpi = dpi, verbose = verbose)
             else:
-                save_fig(filename = save, format = format, dpi = dpi,\
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
                          verbose = verbose)
             plt.close()
         else:
@@ -827,10 +829,10 @@ class Interface():
         plt.tight_layout()
         if save:
             if save is True:
-                save_fig(filename = "combinations.%s" % format, format = format,\
+                ut.save_fig(filename = "combinations.%s" % format, format = format,\
                          dpi = dpi, verbose = verbose)
             else:
-                save_fig(filename = save, format = format, dpi = dpi,\
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
                          verbose = verbose)
             plt.close()
         else:
