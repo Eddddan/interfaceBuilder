@@ -166,7 +166,8 @@ def writeLAMMPS(filename, atoms):
         f.write(nl)
         for i in range(nr_atoms):
             f.write("%5i %3i %13.7f %13.7f %13.7f\n"\
-                    % (atoms.idx[i], atoms.type_i[i], atoms.pos[i, 0], atoms.pos[i, 1], atoms.pos[i, 2]))
+                    % (atoms.idx[i] + 1, atoms.type_i[i], atoms.pos[i, 0],\
+                       atoms.pos[i, 1], atoms.pos[i, 2]))
 
 
 def readVASP(filename):
