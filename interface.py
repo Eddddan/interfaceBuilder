@@ -934,6 +934,9 @@ class Interface():
                     "Rep 2 bx": np.round(self.rep_2[idx, 0, 1], prec),\
                     "Rep 2 by": np.round(self.rep_2[idx, 1, 1], prec)}
 
+        if len(self.e_int.shape) == 1:
+            self.e_int = self.e_int[:, None]
+
         for i in range(self.e_int.shape[1]):
             key = "E_int_T%i" % (i + 1)
             dataDict[key] = np.round(self.e_int[idx, i], prec)
@@ -1076,9 +1079,17 @@ class Interface():
                                                 translate = translate, surface = surface,\
                                                 anchor = anchor)
 
+        """Scale up the masses, (unique also sorts the array)"""
+        m = np.zeros(pos.shape[0])
+        for i, name in enumerate(np.unique(type_n)):
+            m[name == type_n] = mass[i]
+
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
+
+        """Sort all entries the same way"""
         type_n = type_n[ls]
+        mass = m[ls]
         pos = pos[ls]
 
         """After sorting, index all positions"""

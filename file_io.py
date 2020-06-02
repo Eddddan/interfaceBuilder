@@ -159,7 +159,7 @@ def writeLAMMPS(filename, atoms):
         f.write("Masses\n")
         f.write(nl)
         for i, item in enumerate(masses):
-            f.write("%i %11.6f\n" % (i, item))
+            f.write("%i %11.6f\n" % (i + 1, item))
         f.write(nl)
 
         f.write("Atoms\n")
