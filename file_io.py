@@ -130,7 +130,6 @@ def readLAMMPS(filename):
 
 def writeLAMMPS(filename, atoms):
     """Write a LAMMPS data file"""
-    print("Write LAMMPS-file: %s" % filename)
     
     with open(filename, "w") as f:
         
@@ -169,8 +168,6 @@ def writeLAMMPS(filename, atoms):
             f.write("%5i %3i %13.7f %13.7f %13.7f\n"\
                     % (atoms.idx[i], atoms.type_i[i], atoms.pos[i, 0], atoms.pos[i, 1], atoms.pos[i, 2]))
 
-    print("Done\n")
-
 
 def readVASP(filename):
     """Load VASP geometry file"""
@@ -207,8 +204,6 @@ def writeXYZ(filename, atoms):
                       atoms.pos[i, 0], atoms.pos[i, 1], atoms.pos[i, 2],\
                       atoms.mass[i])
             f.write(string)
-
-    print("Wrote file: %s" % filename)
 
 
 

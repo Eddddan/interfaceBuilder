@@ -27,6 +27,9 @@ parser.add_argument("-bs", "--bottom_surface", required = True, choices = bs,\
 parser.add_argument("-t", "--translate", nargs = "+", default = [0], type = int,\
                     help = "Index of translation applied to the interface")
 
+parser.add_argument("-m", "--mass", nargs = "+", type = float,\
+                    help = "Index of bottom surface")
+
 opt = parser.parse_args()
 
 """Load the interfaces from predefined .pkl file"""
@@ -37,5 +40,6 @@ for t in opt.translate:
     if opt.translate == [0]:
         t = None
 
-    itf.exportInterface(idx = opt.index, z_1 = 6, z_2 = 6, d = 2, format = "lammps",\
-                        translate = t, surface = opt.bottom_surface)
+    itf.exportInterface(idx = opt.index, z_1 = 3, z_2 = 6, d = 2, format = "lammps",\
+                        translate = t, surface = opt.bottom_surface, anchor = "@%i" % t,\
+                        mass = opt.mass)

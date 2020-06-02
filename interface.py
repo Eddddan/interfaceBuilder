@@ -240,10 +240,50 @@ class Interface():
         return A, B
 
 
+    def setEint(self, idx, e_int, translation = 1, verbose = 1):
+        """Function for setting the interfacial energies of different translations"""
+
+        if len(self.e_int.shape) == 1:
+            self.e_int = self.e_int[:, None]
+        
+        s = self.e_int.shape
+        t = translation
+
+        if t > s[1]:
+            self.e_int = np.concatenate((self.e_int, np.zeros((s[0], t - s[1]))), axis = 1)
+            if verbose > 0:
+                string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
+                         % (s[0], s[1], s[0], t)
+                ut.infoPrint(string)
+        
+        if verbose > 0:
+            string = "E_int set to: %.2f at translation: %i for interface: %i"\
+                     % (e_int, t, idx)
+            ut.infoPrint(string)
+
+        self.e_int[idx, t - 1] = e_int
+
+
+
     def getAreas(self):
         """function for getting the area of all interaces"""
 
         return np.abs(np.linalg.det(self.cell_1))
+
+
+    def getArea(self, idx, cell = 1):
+        """Function for getting the area of the specified interface and surface"""
+
+        if cell == 1:
+            return np.abs(np.cross(self.cell_1[idx, :, 0], self.cell_1[idx, :, 1]))
+        elif cell == 2:
+            return np.abs(np.cross(self.cell_2[idx, :, 0], self.cell_2[idx, :, 1]))
+
+
+
+    def getCellAngle(self, idx, cell = 1):
+        """Function for getting the area of the specified interface and surface"""
+        print("Do")
 
 
 
@@ -487,7 +527,7 @@ class Interface():
 
 
 
-    def printInterfaces(self, idx = None, sort = None, rev = False, flag = None):
+    def printInterfaces(self, idx = None, sort = None, rev = False, flag = None, anchor = ""):
         """Print info about found interfaces"""
 
         if idx is None:
@@ -498,12 +538,12 @@ class Interface():
         if sort is not None:
             self.sortInterface(sort = sort, rev = rev)
 
-        header1 = "%6s | %5s | %3s %-9s | %5s | %5s | %-6s | %-5s | %4s %-25s | %3s %-11s | %3s %-11s "\
-                  % ("Index", "Rot", "", "Length", "Angle", "Angle", "Area", "Atoms", "", "Strain",\
+        header1 = "%-2s%6s | %5s | %3s %-9s | %5s | %5s | %-6s | %-5s | %4s %-25s | %3s %-11s | %3s %-11s "\
+                  % ("", "Index", "Rot", "", "Length", "Angle", "Angle", "Area", "Atoms", "", "Strain",\
                      "", "Lattice A", "", "Lattice B")
-        header2 = "%6s | %5s | %6s, %5s | %5s | %5s | %6s | %5s | %7s,%7s,%7s,%6s | "\
+        header2 = "%-2s%6s | %5s | %6s, %5s | %5s | %5s | %6s | %5s | %7s,%7s,%7s,%6s | "\
                   "%3s,%3s,%3s,%3s | %3s,%3s,%3s,%3s"\
-                  % ("i", "b0/x", "a1", "a2", "b1/b2", "a1/a2", "Ang^2", "Nr", "11", "22", "12", "mas",\
+                  % ("", "i", "b0/x", "a1", "a2", "b1/b2", "a1/a2", "Ang^2", "Nr", "11", "22", "12", "mas",\
                      "a1x", "a1y", "a2x", "a2y", "b1x", "b1y", "b2x", "b2y")
 
         div = "=" * len(header1)
@@ -535,14 +575,14 @@ class Interface():
             at = self.atoms[i]
 
             if np.isin(i, flag):
-                string = "%6.0f * %5.1f * %6.1f,%6.1f * %5.1f * %5.1f * %6.1f * %5.0f * "\
+                string = "%-2s%6.0f * %5.1f * %6.1f,%6.1f * %5.1f * %5.1f * %6.1f * %5.0f * "\
                     "%7.2f,%7.2f,%7.2f,%6.2f * %3i,%3i,%3i,%3i * %3i,%3i,%3i,%3i"\
-                    % (i, b1, la[0], la[1], ba, aa, ar, at, s1, s2, s3, s4,\
+                    % (anchor, i, b1, la[0], la[1], ba, aa, ar, at, s1, s2, s3, s4,\
                            ra[0], ra[2], ra[1], ra[3], rb[0], rb[2], rb[1], rb[3])
             else:
-                string = "%6.0f | %5.1f | %6.1f,%6.1f | %5.1f | %5.1f | %6.1f | %5.0f | "\
+                string = "%-2s%6.0f | %5.1f | %6.1f,%6.1f | %5.1f | %5.1f | %6.1f | %5.0f | "\
                     "%7.2f,%7.2f,%7.2f,%6.2f | %3i,%3i,%3i,%3i | %3i,%3i,%3i,%3i"\
-                    % (i, b1, la[0], la[1], ba, aa, ar, at, s1, s2, s3, s4,\
+                    % (anchor, i, b1, la[0], la[1], ba, aa, ar, at, s1, s2, s3, s4,\
                            ra[0], ra[2], ra[1], ra[3], rb[0], rb[2], rb[1], rb[3])
 
             print(string)
@@ -850,7 +890,8 @@ class Interface():
             pickle.dump(self, wf, -1)
 
         if verbose > 0:
-            print("Data saved to: %s" % filename)
+            string = "Data saved to: %s" % filename
+            ut.infoPrint(string)
 
 
 
@@ -876,7 +917,6 @@ class Interface():
                     "Strain 22": np.round(self.eps_22[idx], prec),\
                     "Strain 12": np.round(self.eps_12[idx], prec),\
                     "Strain MAS": np.round(self.eps_mas[idx], prec),\
-                    "E_int": self.e_int[idx],\
                     "Base 1 ax": np.round(self.cell_1[idx, 0, 0], prec),\
                     "Base 1 ay": np.round(self.cell_1[idx, 1, 0], prec),\
                     "Base 1 bx": np.round(self.cell_1[idx, 0, 1], prec),\
@@ -894,6 +934,10 @@ class Interface():
                     "Rep 2 bx": np.round(self.rep_2[idx, 0, 1], prec),\
                     "Rep 2 by": np.round(self.rep_2[idx, 1, 1], prec)}
 
+        for i in range(self.e_int.shape[1]):
+            key = "E_int_T%i" % (i + 1)
+            dataDict[key] = np.round(self.e_int[idx, i], prec)
+
         data = pd.DataFrame(dataDict)
         data.to_excel(filename)
 
@@ -909,11 +953,11 @@ class Interface():
 
     def buildInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
                        verbose = 1, vacuum = 0, translate = None,\
-                       surface = None):
+                       surface = None, anchor = "@"):
         """Function for build a specific interface"""
 
         if verbose > 0:
-            self.printInterfaces(idx = idx)
+            self.printInterfaces(idx = idx, anchor = anchor)
 
         """The strained new basis"""
         F = np.zeros((3, 3))
@@ -1017,7 +1061,7 @@ class Interface():
     def exportInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
                         verbose = 1, mass = None, format = "lammps",\
                         filename = None, vacuum = 0, translate = None,\
-                        surface = None):
+                        surface = None, anchor = "@"):
         """Function for writing an interface to a specific file format"""
 
         if filename is None:
@@ -1029,7 +1073,8 @@ class Interface():
         """Build the selected interface"""
         base, pos, type_n = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
                                                 verbose = verbose, vacuum = vacuum,\
-                                                translate = translate, surface = surface)
+                                                translate = translate, surface = surface,\
+                                                anchor = anchor)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
