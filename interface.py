@@ -1080,17 +1080,20 @@ class Interface():
                                                 anchor = anchor)
 
         """Scale up the masses, (unique also sorts the array)"""
-        m = np.zeros(pos.shape[0])
-        for i, name in enumerate(np.unique(type_n)):
-            m[name == type_n] = mass[i]
+        if mass is not None:
+            m = np.zeros(pos.shape[0])
+            for i, name in enumerate(np.unique(type_n)):
+                m[name == type_n] = mass[i]
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
 
         """Sort all entries the same way"""
         type_n = type_n[ls]
-        mass = m[ls]
         pos = pos[ls]
+
+        if mass is not None:
+            mass = m[ls]
 
         """After sorting, index all positions"""
         index = np.arange(type_n.shape[0])
@@ -1147,6 +1150,14 @@ class Interface():
         pos_ext, spec_ext = ut.extendCell(base = old_base, rep = rep,\
                                           pos = pos.T, spec = spec)
 
+        """If it is the top surface then rotate it as done in the matching"""
+        if surface == 2:
+            """Initial rotation"""
+            initRot = np.deg2rad(self.ang[idx])
+
+            """Rotate the positions pos_rot = R*pos"""
+            pos_ext = ut.rotate(pos_ext, initRot, verbose = verbose - 1)
+
         """Convert the entire new cell to direct coordinates"""
         pos_d = np.matmul(np.linalg.inv(new_base), pos_ext)
 
@@ -1183,10 +1194,19 @@ class Interface():
         base, pos, type_n = self.buildSurface(idx = idx, z = z, verbose = verbose,\
                                               vacuum = vacuum, surface = surface)
 
+        """Scale up the masses, (unique also sorts the array)"""
+        if mass is not None:
+            m = np.zeros(pos.shape[0])
+            for i, name in enumerate(np.unique(type_n)):
+                m[name == type_n] = mass[i]
+
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
         type_n = type_n[ls]
         pos = pos[ls]
+
+        if mass is not None:
+            mass = m[ls]
 
         """After sorting, index all positions"""
         index = np.arange(type_n.shape[0])
