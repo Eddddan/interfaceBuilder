@@ -54,8 +54,11 @@ itf = utils.loadInterfaces(filename = opt.input)
 for t in opt.translate:
     if opt.translate == [0]:
         T = None
+        t = ""
+    else:
+        T = t
 
     itf.exportInterface(idx = opt.index, z_1 = opt.repeat_bottom, z_2 = opt.repeat_top,\
                         d = opt.distance, format = "lammps", translate = T,\
-                        surface = opt.bottom_surface, anchor = "@%i" % t,\
+                        surface = opt.bottom_surface, anchor = "@%s" % t,\
                         mass = opt.mass, verbose = opt.verbose, vacuum = opt.vacuum)

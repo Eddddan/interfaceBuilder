@@ -63,8 +63,9 @@ class Interface():
         self.e_int = self.e_int[keep]
 
         if verbose > 0:
-            print("Interfaces deleted: %i | Interfaces remaining: %i"\
-                  % (np.sum(np.logical_not(keep)), np.sum(keep)))
+            string = "Interfaces deleted: %i | Interfaces remaining: %i"\
+                     % (np.sum(np.logical_not(keep)), np.sum(keep))
+            ut.infoPrint(string)
 
 
 
@@ -156,7 +157,7 @@ class Interface():
 
     def getAtomStrainMatches(self, matches = 100, const = None, exp = 1,\
                              strain = "eps_mas", verbose = 1, max_iter = 500,\
-                             tol = 1e-8, endpoint = "under"):
+                             tol = 1e-8, endpoint = "over"):
         """Function for returning interfaces matching the critera
            A * abs(strain) ** B"""
 
@@ -189,6 +190,21 @@ class Interface():
 
         return C, E
     
+
+
+    def removeByAtomStrain(self, keep = 50000, verbose = 1, endpoint = "over",\
+                           strain = "eps_mas", tol = 1e-8, max_iter = 250):
+        """Function for removing interfaces based on Atom strain ratios"""
+        
+        if self.atoms.shape[0] < keep:
+            return
+
+        C, E = self.getAtomStrainMatches(matches = keep, strain = strain, verbose = verbose,\
+                                    max_iter = max_iter, tol = tol, endpoint = endpoint)
+
+        r = self.getAtomStrainRatio(const = C, exp = E, strain = strain, verbose = verbose)
+        self.deleteInterfaces(keep = (r < 0), verbose = verbose)
+
 
 
     def getAtomStrainExpression(self, strain = "eps_mas", verbose = 1):
@@ -281,10 +297,21 @@ class Interface():
 
 
 
-    def getCellAngle(self, idx, cell = 1):
-        """Function for getting the area of the specified interface and surface"""
-        print("Do")
+    def getBaseAngle(self, idx, cell = 1, rad = True):
+        """Function for getting the angle of the specified interface and surface"""
 
+        if cell == 1:
+            ang = np.arccos(np.dot(self.cell_1[idx, :, 0], self.cell_1[idx, :, 1]) /\
+                            np.prod(np.linalg.norm(self.cell_1[idx, :, :], axis = 0)))
+
+        elif cell == 2:
+            ang = np.arccos(np.dot(self.cell_2[idx, :, 0], self.cell_2[idx, :, 1]) /\
+                            np.prod(np.linalg.norm(self.cell_2[idx, :, :], axis = 0)))
+
+        if not rad: 
+            ang = np.rad2deg(ang)
+
+        return ang
 
 
     def getBaseAngles(self, cell):
@@ -300,6 +327,16 @@ class Interface():
         return ang
 
 
+    def getBaseLength(self, idx, cell = 1):
+        """Function for getting the cell lengths of the specified interface and surface"""
+
+        if cell == 1:
+            l = np.linalg.norm(self.cell_1[idx, :, :], axis = 0)
+        elif cell == 2:
+            l = np.linalg.norm(self.cell_2[idx, :, :], axis = 0)
+
+        return l
+
 
     def getBaseLengths(self, cell):
         """Function for getting the cell lengths"""
@@ -307,7 +344,7 @@ class Interface():
         if cell == 1:
             l = np.linalg.norm(self.cell_1, axis = 1)
         elif cell == 2:
-            l = np.linalg.norm(self.cell_1, axis = 1)
+            l = np.linalg.norm(self.cell_2, axis = 1)
 
         return l
 
@@ -468,7 +505,7 @@ class Interface():
         self.eps_mas = eps_mas[keep]
         self.atoms = atoms[keep]
         self.ang = ang[keep]
-        self.e_int = np.zeros(self.atoms.shape[0])
+        self.e_int = np.zeros((self.atoms.shape[0], 1))
 
         """Further removal of interfaces based on specified critera follows below"""
 
@@ -591,6 +628,99 @@ class Interface():
 
 
 
+    def summarize(self, idx, verbose = 1, save = False, format = "pdf",\
+                  dpi = 100):
+        """Plot a summary of information for the specified interface"""
+
+        print("Summarize")
+
+        hFig = plt.figure(figsize = (8, 6))
+
+        """First plot, base view"""
+        self.plotInterface(annotate = True, idx = idx, verbose = verbose,\
+                           align_base = "no", scale = False, save = False,\
+                           handle = True, col = 2, row = 2, N = 1)
+
+        hAx = plt.gca()
+        hAx.set_xlabel(r"$x, (\AA)$")
+        hAx.set_ylabel(r"$y, (\AA)$")
+        
+        """Second plot, align cell 1 to x axis"""
+        self.plotInterface(annotate = True, idx = idx, verbose = verbose,\
+                           align_base = "cell_1", scale = False, save = False,\
+                           handle = True, col = 2, row = 2, N = 2)
+
+        hAx = plt.gca()
+        hAx.yaxis.tick_right()
+        hAx.yaxis.set_label_position("right")
+        hAx.set_xlabel(r"$x, (\AA)$")
+        hAx.set_ylabel(r"$y, (\AA)$")
+
+        """Third plot, all interface combinations, mark this"""
+        C, E = self.getAtomStrainExpression(verbose = verbose - 1)
+        self.plotCombinations(const = C, exp = E, mark = idx, save = False,\
+                              handle = True, eps = "eps_mas", verbose = 1,\
+                              col = 2, row = 2, N = 3, mark_ms = 4)
+        hAx = plt.gca()
+        hAx.set_xscale("log")
+        hAx.set_yscale("log")
+        hAx.set_xlabel("Strain, (%)")
+        hAx.set_ylabel("Atoms")
+
+        hAx = plt.subplot(2, 2, 4)
+        hAx.set_xlim((0, 10))
+        hAx.set_ylim((0, 10))
+        hAx.set_xticks([])
+        hAx.set_yticks([])
+        hAx.set_frame_on(False)
+
+        a = self.atoms[idx]
+        al = self.getBaseLength(idx = idx, cell = 1)
+        bl = self.getBaseLength(idx = idx, cell = 2)
+        aa = self.getBaseAngle(idx = idx, cell = 1, rad = False)
+        ab = self.getBaseAngle(idx = idx, cell = 2, rad = False)
+        area = self.getArea(idx = idx, cell = 1)
+        rot = self.ang[idx]
+
+        string1 = "Index: %i\nAtoms: %i\nLength (a1,a2): %.2f, %.2f\nLength (b1,b2): %.2f, %.2f\n"\
+                 "Angle (a1/a2): %.2f\nAngle (b1/b2): %.2f\nArea: %.2f\nRotation: %.1f" % (idx, a, al[0], al[1],\
+                 bl[0], bl[1], aa, ab, area, rot)
+
+        string1 = "Index: %i\nAtoms: %i\nLength $(a_1,a_2)$: %.2f, %.2f\nLength $(b_1,b_2)$: %.2f, %.2f\n"\
+                  "Angle $(a_1/a_2)$: %.2f\nAngle $(b_1/b_2)$: %.2f\nArea: %.2f\nRotation: %.1f\n\n"\
+                  % (idx, a, al[0], al[1], bl[0], bl[1], aa, ab, area, rot)
+
+        string2 = "$\epsilon_{11}$,$\epsilon_{22}$,$\epsilon_{12}$,$\epsilon_{mas}$: %6.2f, %6.2f, %6.2f, %6.2f\n"\
+                  "$a_{1x},a_{1y},a_{2x},a_{2y}$: %3i, %3i, %3i, %3i\n"\
+                  "$b_{1x},b_{1y},b_{2x},b_{2y}$: %3i, %3i, %3i, %3i\n\n" % (self.eps_11[idx]*100, self.eps_22[idx]*100,\
+                  self.eps_12[idx]*100, self.eps_mas[idx]*100, self.rep_1[idx, 0, 0], self.rep_1[idx, 1, 0],\
+                  self.rep_1[idx, 0, 1], self.rep_1[idx, 1, 1], self.rep_2[idx, 0, 0], self.rep_2[idx, 1, 0],\
+                  self.rep_2[idx, 0, 1], self.rep_2[idx, 1, 1])
+
+        for i in range(self.e_int.shape[1]):
+            if i == 0:
+                string3 = "$E_{T%i}$: %7.2f" % (i + 1, self.e_int[idx, i])
+            elif (i % 3) == 0:
+                string3 += "\n$E_{T%i}$: %7.2f" % (i + 1, self.e_int[idx, i])
+            else:
+                string3 += ", $E_{T%i}$: %7.2f" % (i + 1, self.e_int[idx, i])
+
+        hAx.text(1.5, 5, string1 + string2 + string3, fontsize = 8, ha = "left", va = "center",\
+                 bbox=dict(facecolor = (0, 0, 1, 0.1), edgecolor = (0, 0, 1, 0.5), lw = 1), fontstyle = "normal")
+
+        plt.tight_layout(h_pad = 0.2, w_pad = 2)
+        if save:
+            if save is True:
+                ut.save_fig(filename = "Summary_%s.%s" % (idx, format), format = format,\
+                         dpi = dpi, verbose = verbose)
+            else:
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
+                         verbose = verbose)
+            plt.close()
+        else:
+            plt.show()
+
+
     def subplotInterface(self, annotate = True, idx = 0, verbose = 1,\
                          align_base = "cell_1", scale = False, save = False,\
                          format = "pdf", dpi = 100, row = None,\
@@ -621,6 +751,10 @@ class Interface():
             self.plotInterface(annotate = annotate, idx = item, verbose = verbose - 1,\
                                align_base = align_base, scale = scale, save = False,\
                                handle = True, col = col, row = row, N = N+1)
+
+            hAx = plt.gca()
+            hAx.set_title("Interface %i" % item)
+
 
         plt.tight_layout(h_pad = 0.3, w_pad = 0.3)
         if save:
@@ -754,6 +888,8 @@ class Interface():
         hAx.set_xlim(left = xMin, right = xMax)
         hAx.set_ylim(bottom = yMin, top = yMax)
 
+        if handle: return
+
         hAx.set_title("Interface %s" % idx)
         if not handle:
             hAx.set_ylabel(r"$y, (\AA)$")
@@ -765,10 +901,6 @@ class Interface():
                 hAx.set_ylabel(r"$y, (\AA)$")
             if np.isin(N, range((row - 1) * col + 1, row * col + 1)):
                 hAx.set_xlabel("$x, (\AA)$")
-
-
-        if handle:
-            return
 
         plt.tight_layout()
         if save:
@@ -787,14 +919,12 @@ class Interface():
     def plotCombinations(self, idx = None, const = None, exp = 1,\
                          mark = None, save = False, format = "pdf",\
                          dpi = 100, handle = False, eps = "eps_mas",\
-                         verbose = 1, hAx = None):
+                         verbose = 1, col = 1, row = 1, N = 1, mark_ms = 3,\
+                         mark_s = "d"):
         """Plots strain vs. atoms for the interfaces"""
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
 
-        if not handle:
-            hFig = plt.figure()
-            col, row, N = (1, 1, 1)
         hAx = plt.subplot(row, col, N)
         
         atoms = self.atoms
@@ -815,7 +945,7 @@ class Interface():
             print("Items total: %i" % idx.shape[0])
 
         if mark is not None:
-            if isinstance(mark[0], (int, np.integer)):
+            if isinstance(mark, (int, np.integer)) or isinstance(mark[0], (int, np.integer)):
                 mask = np.zeros(np.shape(idx), dtype = bool)
                 mask[mark] = True
             else:
@@ -852,19 +982,18 @@ class Interface():
                      linestyle = "None", markersize = 2)
 
         if mark is not None:
-            hAx.plot(strain_m * 100, atoms_m, color = 'g', marker = ".",\
-                     linestyle = "None", markersize = 3)
+            hAx.plot(strain_m * 100, atoms_m, color = 'g', marker = mark_s,\
+                     linestyle = "None", markersize = mark_ms)
             if verbose > 0:
                 print("Items marked: %i" % strain_m.shape[0])
+        
+        if handle: return
 
         hAx.set_xscale("log")
         hAx.set_yscale("log")
         hAx.set_ylabel("Nr of Atoms")
         hAx.set_xlabel(r"Strain, %s, (%%)" % eps)
         hAx.set_title("Created Interfaces")
-
-        if handle:
-            return
 
         plt.tight_layout()
         if save:
@@ -962,6 +1091,10 @@ class Interface():
         if verbose > 0:
             self.printInterfaces(idx = idx, anchor = anchor)
 
+        """Get the distance between the top atom and the top of the cell"""
+        void = self.base_1[2, 2] - np.max(self.pos_1[:, 2])
+        d -= void
+
         """The strained new basis"""
         F = np.zeros((3, 3))
         F[2, 2] = self.base_1[2, 2] * z_1 + self.base_2[2, 2] * z_2 + d
@@ -1053,8 +1186,8 @@ class Interface():
         """Add vacuum if specified"""
         F[2, 2] = F[2, 2] + vacuum
         if verbose: 
-            string = "Distance added (between,above): %.2f | Vacuum added (above): %.2f"\
-                     % (d, vacuum)
+            string = "Z-distance fixed (between,above): %.2f | Vacuum added (above): %.2f"\
+                     % (d + void, vacuum)
             ut.infoPrint(string)
 
         return F, pos, species
