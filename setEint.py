@@ -20,7 +20,7 @@ parser.add_argument("-i", "--input", type = str, required = True,\
 parser.add_argument("-idx", "--index", type = int, required = True,\
                     help = "Index of the interface")
 
-parser.add_argument("-ea", "--energy_area", nargs = 2, type = float, required = True,\
+parser.add_argument("-epa", "--energy_per_area", nargs = 2, type = float, required = True,\
                     help = "Energy per area of the individual surfaces of interest")
 
 parser.add_argument("-et", "--energy_total", type = float, required = True,\
@@ -37,14 +37,16 @@ opt = parser.parse_args()
 """Load the interfaces from predefined .pkl file"""
 itf = utils.loadInterfaces(filename = opt.input)
 
-"""Get the area of the interface"""
-area_interface = itf.getArea(idx = opt.index, cell = 1)
+energy_cell_1 = opt.energy_area[0] * itf.getArea(idx = opt.index, cell = 1)
 
-"""Calculate the total energy / area for the complete interface"""
-energy_interface = opt.energy_total / area_interface
+"""Get the area of the interface (cell_1)"""
+area_cell_1 = itf.getArea(idx = opt.index, cell = 1)
+
+"""Calculate the total energy / area (cell_1) for the complete interface"""
+energy_interface = opt.energy_total / area_cell_1
 
 """Calculate the work of separation E/A (interface) - (E/A (slab 1) + E/A (slab 2))"""
-work_sep = energy_interface - (opt.energy_area[0] + opt.energy_area[1])
+work_sep = energy_interface - (opt.energy_per_area[0] + opt.energy_per_area[1])
 
 """Set the value and save"""
 itf.setEint(idx = opt.index, e_int = work_sep, translation = opt.translation, verbose = opt.verbose)
