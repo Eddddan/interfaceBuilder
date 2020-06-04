@@ -43,8 +43,8 @@ area_interface = itf.getArea(idx = opt.index, cell = 1)
 """Calculate the total energy / area for the complete interface"""
 energy_interface = opt.energy_total / area_interface
 
-"""Calculate the work of separation E/A (slab 1) + E/A (slab 2) - E/A (interface)"""
-work_sep = opt.energy_area[0] + opt.energy_area[1] - energy_interface
+"""Calculate the work of separation E/A (interface) - (E/A (slab 1) + E/A (slab 2))"""
+work_sep = energy_interface - (opt.energy_area[0] + opt.energy_area[1])
 
 """Set the value and save"""
 itf.setEint(idx = opt.index, e_int = work_sep, translation = opt.translation, verbose = opt.verbose)

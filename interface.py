@@ -8,7 +8,15 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
+"""Set some plotting defaults"""
+plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium",\
+              "axes.labelsize": "small", "axes.labelweight": "normal",\
+              "axes.titleweight": "semibold", "legend.fontsize": "small",\
+              "xtick.labelsize": "small", "ytick.labelsize": "small",\
+              "figure.titlesize": "medium", "figure.titleweight": "semibold",\
+              "lines.linewidth": 1, "lines.marker": "None", "lines.markersize": 2,\
+              "lines.markerfacecolor": "None"}
+plt.rcParams.update(**plotParams)
 
 class Interface():
     """
@@ -642,9 +650,10 @@ class Interface():
                            handle = True, col = 2, row = 2, N = 1)
 
         hAx = plt.gca()
-        hAx.set_xlabel(r"$x, (\AA)$")
-        hAx.set_ylabel(r"$y, (\AA)$")
-        
+        hAx.set_xlabel("x, ($\AA$)")
+        hAx.set_ylabel("y, ($\AA$)")
+        hAx.tick_params()
+
         """Second plot, align cell 1 to x axis"""
         self.plotInterface(annotate = True, idx = idx, verbose = verbose,\
                            align_base = "cell_1", scale = False, save = False,\
@@ -653,14 +662,14 @@ class Interface():
         hAx = plt.gca()
         hAx.yaxis.tick_right()
         hAx.yaxis.set_label_position("right")
-        hAx.set_xlabel(r"$x, (\AA)$")
-        hAx.set_ylabel(r"$y, (\AA)$")
+        hAx.set_xlabel(r"x, ($\AA$)")
+        hAx.set_ylabel(r"y, ($\AA$)")
 
         """Third plot, all interface combinations, mark this"""
         C, E = self.getAtomStrainExpression(verbose = verbose - 1)
-        self.plotCombinations(const = C, exp = E, mark = idx, save = False,\
-                              handle = True, eps = "eps_mas", verbose = 1,\
-                              col = 2, row = 2, N = 3, mark_ms = 4)
+        self.plotCombinations(const = C, exp = E, mark = idx, save = False, handle = True,\
+                              eps = "eps_mas", verbose = 1, col = 2, row = 2, N = 3,\
+                              mark_ms = 5, mark_m = "x")
         hAx = plt.gca()
         hAx.set_xscale("log")
         hAx.set_yscale("log")
@@ -682,12 +691,8 @@ class Interface():
         area = self.getArea(idx = idx, cell = 1)
         rot = self.ang[idx]
 
-        string1 = "Index: %i\nAtoms: %i\nLength (a1,a2): %.2f, %.2f\nLength (b1,b2): %.2f, %.2f\n"\
-                 "Angle (a1/a2): %.2f\nAngle (b1/b2): %.2f\nArea: %.2f\nRotation: %.1f" % (idx, a, al[0], al[1],\
-                 bl[0], bl[1], aa, ab, area, rot)
-
-        string1 = "Index: %i\nAtoms: %i\nLength $(a_1,a_2)$: %.2f, %.2f\nLength $(b_1,b_2)$: %.2f, %.2f\n"\
-                  "Angle $(a_1/a_2)$: %.2f\nAngle $(b_1/b_2)$: %.2f\nArea: %.2f\nRotation: %.1f\n\n"\
+        string1 = "Index: %i\nAtoms: %i\nLength ($a_1,a_2$): %.2f, %.2f\nLength ($b_1,b_2$): %.2f, %.2f\n"\
+                  "Angle ($a_1/a_2$): %.2f\nAngle ($b_1/b_2$): %.2f\nArea: %.2f\nRotation: %.1f\n\n"\
                   % (idx, a, al[0], al[1], bl[0], bl[1], aa, ab, area, rot)
 
         string2 = "$\epsilon_{11}$,$\epsilon_{22}$,$\epsilon_{12}$,$\epsilon_{mas}$: %6.2f, %6.2f, %6.2f, %6.2f\n"\
@@ -699,14 +704,14 @@ class Interface():
 
         for i in range(self.e_int.shape[1]):
             if i == 0:
-                string3 = "$E_{T%i}$: %7.2f" % (i + 1, self.e_int[idx, i])
-            elif (i % 3) == 0:
-                string3 += "\n$E_{T%i}$: %7.2f" % (i + 1, self.e_int[idx, i])
+                string3 = "$E_{T%i}$: %6.2f" % (i + 1, self.e_int[idx, i])
+            elif (i % 4) == 0:
+                string3 += "\n$E_{T%i}$: %6.2f" % (i + 1, self.e_int[idx, i])
             else:
-                string3 += ", $E_{T%i}$: %7.2f" % (i + 1, self.e_int[idx, i])
+                string3 += ", $E_{T%i}$: %6.2f" % (i + 1, self.e_int[idx, i])
 
-        hAx.text(1.5, 5, string1 + string2 + string3, fontsize = 8, ha = "left", va = "center",\
-                 bbox=dict(facecolor = (0, 0, 1, 0.1), edgecolor = (0, 0, 1, 0.5), lw = 1), fontstyle = "normal")
+        hAx.text(1.5, 5, string1 + string2 + string3, ha = "left", va = "center", fontsize = "small",\
+                 bbox=dict(facecolor = (0, 0, 1, 0.1), edgecolor = (0, 0, 1, 0.5), lw = 1))
 
         plt.tight_layout(h_pad = 0.2, w_pad = 2)
         if save:
@@ -751,10 +756,6 @@ class Interface():
             self.plotInterface(annotate = annotate, idx = item, verbose = verbose - 1,\
                                align_base = align_base, scale = scale, save = False,\
                                handle = True, col = col, row = row, N = N+1)
-
-            hAx = plt.gca()
-            hAx.set_title("Interface %i" % item)
-
 
         plt.tight_layout(h_pad = 0.3, w_pad = 0.3)
         if save:
@@ -888,19 +889,19 @@ class Interface():
         hAx.set_xlim(left = xMin, right = xMax)
         hAx.set_ylim(bottom = yMin, top = yMax)
 
-        if handle: return
-
         hAx.set_title("Interface %s" % idx)
         if not handle:
-            hAx.set_ylabel(r"$y, (\AA)$")
-            hAx.set_xlabel(r"$x, (\AA)$")
+            hAx.set_ylabel(r"y, ($\AA$)")
+            hAx.set_xlabel(r"x, ($\AA$)")
 
             hAx.legend(framealpha = 1)
         else:
             if np.isin(N, range(1, row*col + 1, col)):
-                hAx.set_ylabel(r"$y, (\AA)$")
+                hAx.set_ylabel("y, ($\AA$)")
             if np.isin(N, range((row - 1) * col + 1, row * col + 1)):
-                hAx.set_xlabel("$x, (\AA)$")
+                hAx.set_xlabel("x, ($\AA$)")
+
+        if handle: return
 
         plt.tight_layout()
         if save:
@@ -915,12 +916,65 @@ class Interface():
             plt.show()
 
 
+    def hexPlotCombinations(self, idx = None, eps = "eps_mas",\
+                            save = False, format = "pdf", dpi = 100,\
+                            col = 1, row = 1, N = 1, handle = False,\
+                            verbose = 1, **kwarg):
+        """Hexplot of specified combinations"""
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+
+        if not handle: hFig = plt.figure()
+        hAx = plt.subplot(row, col, N)
+
+        if eps == "eps_11":
+            hAx.hexbin(np.abs(self.eps_11[idx]) * 100, self.atoms[idx],\
+                       xscale = "log", yscale = "log", mincnt = 1, **kwarg)
+            x_label = "Strain $abs(\epsilon_{11})$ (%)"
+
+            if verbose > 0: print("Showing absolute value of %s" % (eps))
+
+        elif eps == "eps_22":
+            hAx.hexbin(np.abs(self.eps_22[idx]) * 100, self.atoms[idx],\
+                       xscale = "log", yscale = "log", mincnt = 1, **kwarg)
+            x_label = "Strain $abs(\epsilon_{22})$ (%)"
+
+            if verbose > 0: print("Showing absolute value of %s" % (eps))
+        elif eps == "eps_12":
+            hAx.hexbin(np.abs(self.eps_12[idx]) * 100, self.atoms[idx],\
+                       xscale = "log", yscale = "log", mincnt = 1, **kwarg)
+            x_label = "Strain $abs(\epsilon_{12})$ (%)"
+
+            if verbose > 0: print("Showing absolute value of %s" % (eps))
+        else:
+            hAx.hexbin(self.eps_mas[idx] * 100, self.atoms[idx],\
+                       xscale = "log", yscale = "log", mincnt = 1, **kwarg)
+            x_label = "Strain $\epsilon_{mas}$ (%)"
+
+        if handle: return
+
+        hAx.set_xlabel(x_label)
+        hAx.set_ylabel("Atoms")
+
+        plt.tight_layout()
+        if save:
+            if save is True:
+                ut.save_fig(filename = "hex_combinations.%s" % format, format = format,\
+                         dpi = dpi, verbose = verbose)
+            else:
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
+                         verbose = verbose)
+            plt.close()
+        else:
+            plt.show()
+
+
 
     def plotCombinations(self, idx = None, const = None, exp = 1,\
                          mark = None, save = False, format = "pdf",\
                          dpi = 100, handle = False, eps = "eps_mas",\
                          verbose = 1, col = 1, row = 1, N = 1, mark_ms = 3,\
-                         mark_s = "d"):
+                         mark_m = "x", marker = "o", **kwarg):
         """Plots strain vs. atoms for the interfaces"""
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
@@ -931,14 +985,18 @@ class Interface():
 
         if eps == "eps_11":
             strain = np.abs(self.eps_11)
+            x_label = "Strain $abs(\epsilon_{11})$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps == "eps_22":
             strain = np.abs(self.eps_22)
+            x_label = "Strain $abs(\epsilon_{22})$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps == "eps_12":
             strain = np.abs(self.eps_12)
+            x_label = "Strain $abs(\epsilon_{12})$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
+            x_label = "Strain $\epsilon_{mas}$ (%)"
             strain = self.eps_mas
 
         if verbose > 0:
@@ -962,28 +1020,28 @@ class Interface():
             low = atoms < (const * strain ** exp)
             hi = np.logical_not(low)
 
-            hAx.plot(strain[low] * 100, atoms[low], color = 'b', marker = ".",\
-                     linestyle = "None", markersize = 2)
+            hAx.plot(strain[low] * 100, atoms[low], color = 'b', linestyle = "None",\
+                     marker = "o", mew = 0.5, **kwarg)
 
-            hAx.plot(strain[hi] * 100, atoms[hi], color = 'r', marker = ".",\
-                     linestyle = "None", markersize = 2)
+            hAx.plot(strain[hi] * 100, atoms[hi], color = 'r', linestyle = "None",\
+                     marker = "o", mew = 0.5, **kwarg)
 
             """Plot the dividing line for the specified limit"""
             j = np.lexsort((atoms, strain))[0]
             k = np.lexsort((strain, atoms))[0]
-            x = np.logspace(np.log(strain[j] * 0.9), np.log(strain[k] * 1.1), 1000, base = np.exp(1))
+            x = np.logspace(np.log(strain[j]), np.log(strain[k]), 1000, base = np.exp(1))
 
             hAx.plot(x * 100, const * x ** exp, linewidth = 0.5, color = 'k')
 
             if verbose > 0:
                 print("Items below: %i | Items above: %i" % (np.sum(low), np.sum(hi)))
         else:
-            hAx.plot(strain * 100, atoms, color = 'b', marker = ".",\
-                     linestyle = "None", markersize = 2)
+            hAx.plot(strain * 100, atoms, color = 'b', linestyle = "None", marker = "o",\
+                     mew = 0.5, **kwarg)
 
         if mark is not None:
-            hAx.plot(strain_m * 100, atoms_m, color = 'g', marker = mark_s,\
-                     linestyle = "None", markersize = mark_ms)
+            hAx.plot(strain_m * 100, atoms_m, color = 'k', marker = mark_m,\
+                     linestyle = "None", markersize = mark_ms, mfc = 'k', mew = 1.2)
             if verbose > 0:
                 print("Items marked: %i" % strain_m.shape[0])
         
@@ -992,7 +1050,7 @@ class Interface():
         hAx.set_xscale("log")
         hAx.set_yscale("log")
         hAx.set_ylabel("Nr of Atoms")
-        hAx.set_xlabel(r"Strain, %s, (%%)" % eps)
+        hAx.set_xlabel(x_label)
         hAx.set_title("Created Interfaces")
 
         plt.tight_layout()
@@ -1007,6 +1065,69 @@ class Interface():
         else:
             plt.show()
 
+
+    def plotEint(self, idx = None, translation = None, col = 1, row = 1,\
+                 N = 1, save = False, dpi = 100, format = "pdf",\
+                 x_data = "idx", handle = False, **kwarg):
+        """Function for plotting interacial energies"""
+
+        if idx is None: idx = np.arange(self.e_int.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = np.array([idx])
+        if translation is None: translation = np.arange(self.e_int.shape[1])
+        if isinstance(translation, (int, np.integer)): translation = np.array([translation])
+
+        hFix = plt.figure()
+        hAx = plt.subplot(row, col, N)
+
+        if x_data.lower() == "idx":
+            for i, t in enumerate(translation):
+                hAx.plot(self.e_int[idx, :][:, t - 1], label = "$T_{%i}$" % t, **kwarg)
+            x_label = "Index"
+        elif x_data.lower() == "eps_11":
+            for i, t in enumerate(translation):
+                hAx.plot(self.eps_11[idx], self.e_int[idx, :][:, t - 1],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "$\epsilon_{11}$"
+        elif x_data.lower() == "eps_22":
+            for i, t in enumerate(translation):
+                hAx.plot(self.eps_22[idx], self.e_int[idx, :][:, t - 1],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "$\epsilon_{22}$"
+        elif x_data.lower() == "eps_12":
+            for i, t in enumerate(translation):
+                hAx.plot(self.eps_12[idx], self.e_int[idx, :][:, t - 1],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "$\epsilon_{12}$"
+        elif x_data.lower() == "eps_mas":
+            for i, t in enumerate(translation):
+                hAx.plot(self.eps_mas[idx], self.e_int[idx, :][:, t - 1],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "$\epsilon_{mas}$"
+        elif x_data.lower() == "atoms":
+            for i, t in enumerate(translation):
+                hAx.plot(self.atoms[idx], self.e_int[idx, :][:, t - 1],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "Atoms"
+
+
+        if handle: return
+
+        hAx.set_xlabel(x_label)
+        hAx.set_ylabel("Energy, (eV)")
+        hAx.set_title("Work of Adhesion")
+        hAx.legend(framealpha = 1)
+        
+        plt.tight_layout()
+        if save:
+            if save is True:
+                ut.save_fig(filename = "E_int.%s" % format, format = format,\
+                         dpi = dpi, verbose = verbose)
+            else:
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
+                         verbose = verbose)
+            plt.close()
+        else:
+            plt.show()
 
 
     def saveInterfaces(self, filename = "Interfaces.pkl", verbose = 1):
