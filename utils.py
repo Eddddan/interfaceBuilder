@@ -295,12 +295,14 @@ def getAngles(a, b):
 
 
 
-def extendCell(base, rep, pos, spec):
+def extendCell(base, rep, pos, spec, mass):
     """Function for extending a unitcell.
        base - base for the cell
        rep  - [xLo, xHi, yLo, yHi, zLo, zHi]
        pos  - positions, cartesian in - cartesian out
-       spec - Atomic species"""
+       spec - Atomic species
+       mass - Atomic masses"""
+       
 
     """Convert positions to direct coordinates"""
     pos_d = np.matmul(np.linalg.inv(base), pos)
@@ -324,15 +326,19 @@ def extendCell(base, rep, pos, spec):
     """Extend the atomic species tag along with the positions"""
     spec_ext = np.tile(spec, (np.int(ext.shape[1] / pos_d.shape[1])))
 
+    """Extend the atomic masses along with the positions"""
+    mass_ext = np.tile(mass, (np.int(ext.shape[1] / pos_d.shape[1])))
+
     """Remove all atoms in the z direction outside the supplied max/min z value"""
     keep = (pos_d_ext[2, :] >= rep[4]) * (pos_d_ext[2, :] < (rep[5] + 1))
     pos_d_ext = pos_d_ext[:, keep]
     spec_ext = spec_ext[keep]
+    mass_ext = mass_ext[keep]
 
     """Transform from direct coordinates to Cartesian coordinates"""
     pos_ext = np.matmul(base, pos_d_ext)
 
-    return pos_ext, spec_ext
+    return pos_ext, spec_ext, mass_ext
 
 
 

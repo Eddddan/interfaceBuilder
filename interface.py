@@ -25,7 +25,8 @@ class Interface():
 
     __slots__ = ['cell_1', 'cell_2', 'rep_1', 'rep_2', 'eps_11', 'eps_22',\
                  'eps_12', 'eps_mas', 'atoms', 'ang', 'e_int', 'base_1',\
-                 'base_2', 'pos_1', 'pos_2', 'spec_1', 'spec_2', 'mass']
+                 'base_2', 'pos_1', 'pos_2', 'spec_1', 'spec_2', 'mass_1',\
+                 'mass_2']
 
     def __init__(self,\
                  structure_a,\
@@ -49,7 +50,8 @@ class Interface():
         self.pos_2 = structure_b.pos
         self.spec_1 = structure_a.type_n
         self.spec_2 = structure_b.type_n
-        self.mass = None
+        self.mass_1 = structure_a.mass
+        self.mass_2 = structure_b.mass
 
 
 
@@ -212,6 +214,11 @@ class Interface():
 
         r = self.getAtomStrainRatio(const = C, exp = E, strain = strain, verbose = verbose)
         self.deleteInterfaces(keep = (r < 0), verbose = verbose)
+        
+        self.indexSortInterfaces(index = np.argsort(r[r < 0]))
+        if verbose > 0:
+            string = "Sorted by Atom Strain ratio atom - A*abs(strain)**B with A,B: %.3e, %.3e" % (C, E)
+            ut.infoPrint(string)
 
 
 
@@ -265,10 +272,13 @@ class Interface():
 
 
     def setEint(self, idx, e_int, translation = 1, verbose = 1):
-        """Function for setting the interfacial energies of different translations"""
+        """Function for setting the interfacial energies of different translations
 
-        if len(self.e_int.shape) == 1:
-            self.e_int = self.e_int[:, None]
+           idx - int representing interface index, 0-based.
+
+           translation - int representing the specific translation, 1-based.
+
+           e_int - int representing the energy value"""
         
         s = self.e_int.shape
         t = translation
@@ -288,11 +298,48 @@ class Interface():
         self.e_int[idx, t - 1] = e_int
 
 
+    def setEintArray(self, idx, translation, e_int):
+        """Function for setting the interfacial energies from an array of values
 
-    def getAreas(self):
-        """function for getting the area of all interaces"""
+           idx - 1d vector of interface index, 0 based.
 
-        return np.abs(np.linalg.det(self.cell_1))
+           translation - 1d vector of column index, 1 based.
+
+           e_int - 2d array of shape (idx,translation) containing energies."""
+
+        """Check inputs"""
+        if not isinstance(translation, (np.ndarray, list, range)):
+            print("<translation> parameter must be a np.ndarray, list or range")
+            return
+        if not isinstance(idx, (np.ndarray, list, range)):
+            print("<idx> parameter must be a np.ndarray, list or range")
+            return
+        
+        s = self.e_int.shape
+        t = translation
+
+        if np.max(t) > s[1]:
+            self.e_int = np.concatenate((self.e_int, np.zeros((s[0], np.max(t) - s[1]))), axis = 1)
+            if verbose > 0:
+                string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
+                         % (s[0], s[1], s[0], np.max(t))
+                ut.infoPrint(string)
+
+        """t 1-based!"""
+        for i, col in enumerate(t):
+            self.e_int[idx, col - 1] = e_int[:, i]
+
+
+
+    def getAreas(self, idx = None, cell = 1):
+        """function for getting the area of multiple interfaces"""
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+
+        if cell == 1:
+            return np.abs(np.linalg.det(self.cell_1[idx, :, :]))
+        else:
+            return np.abs(np.linalg.det(self.cell_2[idx, :, :]))
 
 
     def getArea(self, idx, cell = 1):
@@ -1238,8 +1285,9 @@ class Interface():
                  0, z_1 - 1]
 
         """Extend the cell as spcefied"""
-        pos_1_ext, spec_1 = ut.extendCell(base = self.base_1, rep = rep_1,\
-                                          pos = self.pos_1.T, spec = self.spec_1)
+        pos_1_ext, spec_1, mass_1 = ut.extendCell(base = self.base_1, rep = rep_1,\
+                                                  pos = self.pos_1.T, spec = self.spec_1,\
+                                                  mass = self.mass_1)
 
         """Working on interface B"""    
         """Set up the top interface with the correct repetitions and rotation"""
@@ -1253,8 +1301,9 @@ class Interface():
                  0, z_2 - 1]
 
         """Extend the cell as specified"""
-        pos_2_ext, spec_2 = ut.extendCell(base = self.base_2, rep = rep_2,\
-                                          pos = self.pos_2.T, spec = self.spec_2)
+        pos_2_ext, spec_2, mass_2 = ut.extendCell(base = self.base_2, rep = rep_2,\
+                                                  pos = self.pos_2.T, spec = self.spec_2,\
+                                                  mass = self.mass_2)
 
         """Initial rotation"""
         initRot = np.deg2rad(self.ang[idx])
@@ -1300,6 +1349,7 @@ class Interface():
         keep = np.all(pos_d < 1, axis = 0) * np.all(pos_d >= 0, axis = 0)
         pos_d = pos_d[:, keep]
         species = np.concatenate((spec_1, spec_2))[keep]
+        mass = np.concatenate((mass_1, mass_2))[keep]
 
         """Return to cartesian coordinates and change shape to (...,3)"""
         pos = np.matmul(F, pos_d).T
@@ -1311,12 +1361,12 @@ class Interface():
                      % (d + void, vacuum)
             ut.infoPrint(string)
 
-        return F, pos, species
+        return F, pos, species, mass
 
 
 
     def exportInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
-                        verbose = 1, mass = None, format = "lammps",\
+                        verbose = 1, format = "lammps",\
                         filename = None, vacuum = 0, translate = None,\
                         surface = None, anchor = "@"):
         """Function for writing an interface to a specific file format"""
@@ -1328,26 +1378,18 @@ class Interface():
                 filename = "interface_%s_T%s.%s" % (idx, translate, format)
 
         """Build the selected interface"""
-        base, pos, type_n = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
+        base, pos, type_n, mass = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
                                                 verbose = verbose, vacuum = vacuum,\
                                                 translate = translate, surface = surface,\
                                                 anchor = anchor)
-
-        """Scale up the masses, (unique also sorts the array)"""
-        if mass is not None:
-            m = np.zeros(pos.shape[0])
-            for i, name in enumerate(np.unique(type_n)):
-                m[name == type_n] = mass[i]
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
 
         """Sort all entries the same way"""
         type_n = type_n[ls]
+        mass = mass[ls]
         pos = pos[ls]
-
-        if mass is not None:
-            mass = m[ls]
 
         """After sorting, index all positions"""
         index = np.arange(type_n.shape[0])
@@ -1378,6 +1420,7 @@ class Interface():
         if surface == 1:
             old_base = self.base_1
             spec = self.spec_1
+            mass = self.mass_1
             pos = self.pos_1
 
             new_base[2, 2] = self.base_1[2, 2] * z
@@ -1387,6 +1430,7 @@ class Interface():
         elif surface == 2:
             old_base = self.base_2
             spec = self.spec_2
+            mass = self.mass_2
             pos = self.pos_2
 
             new_base[2, 2] = self.base_2[2, 2] * z
@@ -1401,8 +1445,9 @@ class Interface():
                0, z - 1]
 
         """Extend the cell as spcefied"""
-        pos_ext, spec_ext = ut.extendCell(base = old_base, rep = rep,\
-                                          pos = pos.T, spec = spec)
+        pos_ext, spec_ext, mass_ext = ut.extendCell(base = old_base, rep = rep,\
+                                                    pos = pos.T, spec = spec,\
+                                                    mass = mass)
 
         """If it is the top surface then rotate it as done in the matching"""
         if surface == 2:
@@ -1422,6 +1467,7 @@ class Interface():
         keep = np.all(pos_d < 1, axis = 0) * np.all(pos_d >= 0, axis = 0)
         pos_d = pos_d[:, keep]
         species = spec_ext[keep]
+        mass = mass_ext[keep]
 
         """Return to cartesian coordinates and change shape to (...,3)"""
         pos = np.matmul(new_base, pos_d).T
@@ -1433,11 +1479,11 @@ class Interface():
                      % (vacuum)
             ut.infoPrint(string)
 
-        return new_base, pos, species
+        return new_base, pos, species, mass
 
 
 
-    def exportSurface(self, idx = 0, z = 1, verbose = 1, mass = None, format = "lammps",\
+    def exportSurface(self, idx = 0, z = 1, verbose = 1, format = "lammps",\
                         filename = None, vacuum = 0, surface = 1):
         """Function for writing an interface to a specific file format"""
 
@@ -1445,22 +1491,14 @@ class Interface():
             filename = "surface_%s_S%s.%s" % (idx, surface, format)
 
         """Build the selected interface"""
-        base, pos, type_n = self.buildSurface(idx = idx, z = z, verbose = verbose,\
+        base, pos, type_n, mass = self.buildSurface(idx = idx, z = z, verbose = verbose,\
                                               vacuum = vacuum, surface = surface)
-
-        """Scale up the masses, (unique also sorts the array)"""
-        if mass is not None:
-            m = np.zeros(pos.shape[0])
-            for i, name in enumerate(np.unique(type_n)):
-                m[name == type_n] = mass[i]
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
         type_n = type_n[ls]
+        mass = mass[ls]
         pos = pos[ls]
-
-        if mass is not None:
-            mass = m[ls]
 
         """After sorting, index all positions"""
         index = np.arange(type_n.shape[0])
@@ -1479,7 +1517,7 @@ class Interface():
 
 
     def buildInterfaceStructure(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
-                                verbose = 1, mass = None, filename = None,\
+                                verbose = 1, filename = None,\
                                 vacuum = 0, translate = None, surface = None):
         """Function for writing an interface to a specific file format"""
 
@@ -1490,13 +1528,14 @@ class Interface():
                 filename = "InterfaceStructure_%s_T%s" % (idx, translate)
 
         """Build the selected interface"""
-        base, pos, type_n = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
+        base, pos, type_n, mass = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
                                                 verbose = verbose, vacuum = vacuum,\
                                                 translate = translate, surface = surface)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
         type_n = type_n[ls]
+        mass = mass[ls]
         pos = pos[ls]
 
         """After sorting, index all positions"""
@@ -1514,7 +1553,7 @@ class Interface():
 
 
 
-    def buildSurfaceStructure(self, idx = 0, z = 1, verbose = 1, mass = None,\
+    def buildSurfaceStructure(self, idx = 0, z = 1, verbose = 1,\
                               filename = None, vacuum = 0, surface = None):
         """Function for writing an interface to a specific file format"""
 
@@ -1522,12 +1561,13 @@ class Interface():
             filename = "SurfaceStructure_%s_S%s" % (idx, surface)
 
         """Build the selected interface"""
-        base, pos, type_n = self.buildSurface(idx = idx, z = z, verbose = verbose,\
+        base, pos, type_n, mass = self.buildSurface(idx = idx, z = z, verbose = verbose,\
                                               vacuum = vacuum, surface = surface)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
         type_n = type_n[ls]
+        mass = mass[ls]
         pos = pos[ls]
 
         """After sorting, index all positions"""

@@ -139,7 +139,11 @@ def writeLAMMPS(filename, atoms):
         box = [0, atoms.cell[0, 0], 0, atoms.cell[1, 1], 0, atoms.cell[2, 2]]
         nr_atoms = atoms.pos.shape[0]
         nr_types = np.unique(atoms.type_i).shape[0]
-        masses = np.unique(atoms.mass)
+        masses = np.zeros(nr_types)
+        for i, item in enumerate(np.unique(atoms.type_i)):
+            masses[i] = atoms.mass[atoms.type_i == item][0]
+
+        #masses = np.unique(atoms.mass)
 
         """First a comment line"""
         f.write("LAMMPS-data file written from file_io.py\n")

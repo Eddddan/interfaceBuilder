@@ -27,9 +27,6 @@ parser.add_argument("-bs", "--bottom_surface", required = True, choices = bs,\
 parser.add_argument("-t", "--translate", nargs = "+", default = [0], type = int,\
                     help = "Index of translation applied to the interface")
 
-parser.add_argument("-m", "--mass", nargs = "+", type = float,\
-                    help = "Index of bottom surface")
-
 parser.add_argument("-d", "--distance", type = float, default = 2.0,\
                     help = "Distance between the surfaces")
 
@@ -61,4 +58,4 @@ for t in opt.translate:
     itf.exportInterface(idx = opt.index, z_1 = opt.repeat_bottom, z_2 = opt.repeat_top,\
                         d = opt.distance, format = "lammps", translate = T,\
                         surface = opt.bottom_surface, anchor = "@%s" % t,\
-                        mass = opt.mass, verbose = opt.verbose, vacuum = opt.vacuum)
+                        verbose = opt.verbose, vacuum = opt.vacuum)
