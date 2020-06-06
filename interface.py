@@ -139,6 +139,88 @@ class Interface():
         self.e_int = self.e_int[index]
 
 
+        
+    def changeBaseElements(self, change = None, swap = None, cell = 1, verbose = 1):
+        """Function for changing the composition of the base lattice
+           
+           change - Dict with keys {"from": "XX", "to": "YY", "mass": MASS}
+           changes the spec = XX to spec = YY and changes mass to MASS
+
+           swap - Dict with keys {"switch_1: "XX", "switch_2": "YY"}
+           switches the spec = XX and spec = YY and switches mass as well
+
+        """
+
+        if (change is not None) and (swap is not None):
+            string = "Cant use both change and swap at the same time"
+            ut.infoPrint(string)
+
+        elif change is not None:
+            if type(change["from"]) == str: change["from"] = bytes(change["from"], "utf-8")
+            if type(change["to"]) == str: change["to"] = bytes(change["to"], "utf-8")
+
+            if cell == 1:
+                self.mass_1[self.spec_1 == change["from"]] = change["mass"]
+                self.spec_1[self.spec_1 == change["from"]] = change["to"]
+            elif cell == 2:
+                self.mass_2[self.spec_2 == change["from"]] = change["mass"]
+                self.spec_2[self.spec_2 == change["from"]] = change["to"]
+            else:
+                return
+            
+            if verbose > 0:
+                string = "Changing elements: %s --> %s and updating mass to: %.4f for cell %i"\
+                         % (change["from"].decode("utf-8"), change["to"].decode("utf-8"),\
+                            change["mass"], cell)
+                ut.infoPrint(string)
+
+        elif swap is not None:
+            if type(swap["swap_1"]) == str: swap["swap_1"] = bytes(swap["swap_1"], "utf-8")
+            if type(swap["swap_2"]) == str: swap["swap_2"] = bytes(swap["swap_2"], "utf-8")
+
+            if cell == 1:
+                mass1 = self.mass_1[self.spec_1 == swap["swap_1"]][0]
+                spec1 = self.spec_1[self.spec_1 == swap["swap_1"]][0]
+                mask1 = self.spec_1 == swap["swap_1"]
+
+                mass2 = self.mass_1[self.spec_1 == swap["swap_2"]][0]
+                spec2 = self.spec_1[self.spec_1 == swap["swap_2"]][0]
+                mask2 = self.spec_1 == swap["swap_2"]
+
+                self.mass_1[mask1] = mass2
+                self.spec_1[mask1] = spec2
+                self.mass_1[mask2] = mass1
+                self.spec_1[mask2] = spec1
+
+            elif cell == 2:
+                mass1 = self.mass_2[self.spec_2 == swap["swap_1"]][0]
+                spec1 = self.spec_2[self.spec_2 == swap["swap_1"]][0]
+                mask1 = self.spec_2 == swap["swap_1"]
+
+                mass2 = self.mass_2[self.spec_2 == swap["swap_2"]][0]
+                spec2 = self.spec_2[self.spec_2 == swap["swap_2"]][0]
+                mask2 = self.spec_2 == swap["swap_2"]
+
+                self.mass_2[mask1] = mass2
+                self.spec_2[mask1] = spec2
+                self.mass_2[mask2] = mass1
+                self.spec_2[mask2] = spec1
+
+            else:
+                return
+            
+            if verbose > 0:
+                string = "Swaping elements: %s and %s and swaping masses: %.4f to %.4f for cell %i"\
+                         % (swap["swap_1"].decode("utf-8"), swap["swap_2"].decode("utf-8"),\
+                            mass1, mass2, cell)
+                ut.infoPrint(string)
+
+
+        else:
+            return
+
+
+
 
     def getAtomStrainRatio(self, strain = "eps_mas", const = None, exp = 1, verbose = 1):
         """Get the property atoms - A * abs(strain) ** B"""
@@ -298,7 +380,7 @@ class Interface():
         self.e_int[idx, t - 1] = e_int
 
 
-    def setEintArray(self, idx, translation, e_int):
+    def setEintArray(self, idx, translation, e_int, verbose = 1):
         """Function for setting the interfacial energies from an array of values
 
            idx - 1d vector of interface index, 0 based.
