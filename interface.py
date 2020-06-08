@@ -139,7 +139,35 @@ class Interface():
         self.e_int = self.e_int[index]
 
 
-        
+    def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1):
+        """Get the index of interfaces with strains within specified tolerences"""
+
+        """Find unique strains within specified tolerances, favor lowest number of atoms"""
+        values = np.zeros((self.atoms.shape[0], 2))
+        values[:, 0] = self.atoms.copy()
+        values[:, 1] = np.round(self.eps_mas.copy(), tol_mag)
+        unique = np.unique(values, axis = 0, return_index = True)[1]
+        index = np.in1d(np.arange(self.atoms.shape[0]), unique)
+
+        if verbose > 0:
+            string = "Unique strain/atom combinations found: %i within a tolerance magnitude of 1e-%i"\
+                     % (np.sum(index), tol_mag)
+            ut.infoPrint(string)
+
+        return index
+
+
+    def removeAtomStrainDuplicates(self, tol_mag = 7, verbose = 1):
+        """Remove interfaces based on duplicates of atom/strain"""
+
+        print("Remove atom strain")
+
+        keep = self.getAtomStrainDuplicates(tol_mag = tol_mag, verbose = verbose - 1)
+
+        self.deleteInterfaces(keep = keep, verbose = verbose)
+
+
+
     def changeBaseElements(self, change = None, swap = None, cell = 1, verbose = 1):
         """Function for changing the composition of the base lattice
            
@@ -249,7 +277,7 @@ class Interface():
 
     def getAtomStrainMatches(self, matches = 100, const = None, exp = 1,\
                              strain = "eps_mas", verbose = 1, max_iter = 500,\
-                             tol = 1e-8, endpoint = "over"):
+                             tol = 1e-7, endpoint = "over"):
         """Function for returning interfaces matching the critera
            A * abs(strain) ** B"""
 
@@ -285,7 +313,7 @@ class Interface():
 
 
     def removeByAtomStrain(self, keep = 50000, verbose = 1, endpoint = "over",\
-                           strain = "eps_mas", tol = 1e-8, max_iter = 250):
+                           strain = "eps_mas", tol = 1e-7, max_iter = 350):
         """Function for removing interfaces based on Atom strain ratios"""
         
         if self.atoms.shape[0] < keep:
@@ -451,15 +479,24 @@ class Interface():
         return ang
 
 
-    def getBaseAngles(self, cell):
-        """Function fofr getting the base angles of the bottom or top cells"""
+    def getBaseAngles(self, cell, idx = None, rad = True):
+        """Function for getting the base angles of the bottom or top cells"""
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if not isinstance(idx, (np.ndarray, range, list)):
+            string = "Idx must be np.ndarray, range or list of index"
+            ut.infoPrint(string)
+            return
 
         if cell == 1:
-            ang = np.arccos(np.sum(self.cell_1[:, :, 0] * self.cell_1[:, :, 1], axis = 1) /\
-                            np.prod(np.linalg.norm(self.cell_1, axis = 1), 1))
+            ang = np.arccos(np.sum(self.cell_1[idx, :, 0] * self.cell_1[idx, :, 1], axis = 1) /\
+                            np.prod(np.linalg.norm(self.cell_1[idx, :, :], axis = 1), 1))
         elif cell == 2:
-            ang = np.arccos(np.sum(self.cell_2[:, :, 0] * self.cell_2[:, :, 1], axis = 1) /\
-                            np.prod(np.linalg.norm(self.cell_2, axis = 1), 1))
+            ang = np.arccos(np.sum(self.cell_2[idx, :, 0] * self.cell_2[idx, :, 1], axis = 1) /\
+                            np.prod(np.linalg.norm(self.cell_2[idx, :, :], axis = 1), 1))
+
+        if not rad:
+            ang = np.rad2deg(ang)
 
         return ang
 
@@ -489,7 +526,10 @@ class Interface():
 
     def matchCells(self, dTheta = 4, theta = None, n_max = 4, N = None,\
                    m_max = 4, M = None, max_strain = 1, max_atoms = 1000,\
-                   limit = None, exp = 1, verbose = 1, min_angle = 12.5):
+                   limit = None, exp = 1, verbose = 1, min_angle = 10,\
+                   remove_asd = True, asd_tol = 7, limit_asr = False,\
+                   asr_tol = 1e-7, asr_iter = 350, asr_strain = "eps_mas",\
+                   asr_endpoint = "over"):
 
         """Get number of atoms per area (xy) in base cell 1 and 2"""
         rhoA = self.pos_1.shape[0] / np.abs(np.cross(self.base_1[0:2, 0], self.base_1[0:2, 1]))
@@ -589,8 +629,9 @@ class Interface():
         detD = detD[keep]
 
         if verbose > 0:
-            print("Total basis pairs: %.0f | Lin dep/left handed: %.0f | Total kept: %.0f"\
-                      % (keep.shape[0], keep.shape[0] - np.sum(keep), np.sum(keep)))
+            string = "Total basis pairs: %.0f | Lin dep/left handed: %.0f | Total kept: %.0f"\
+                     % (keep.shape[0], keep.shape[0] - np.sum(keep), np.sum(keep))
+            ut.infoPrint(string)
 
         """Remove the lin-dep/left handed combinations before calculating the strain"""
         F = F[keep]
@@ -628,8 +669,9 @@ class Interface():
         ufi = np.unique(full, axis = 0, return_index = True)[1]
         keep = np.isin(np.arange(atoms.shape[0]), ufi)
         if verbose > 0:
-            print("Non unique matches: %i | Total matches keept: %i"\
-                      % (atoms.shape[0] - np.sum(keep), np.sum(keep)))
+            string = "Non unique matches: %i | Total matches keept: %i"\
+                      % (atoms.shape[0] - np.sum(keep), np.sum(keep))
+            ut.infoPrint(string)
 
         """Assign values to class variables"""
         self.cell_1 = F[keep]
@@ -651,11 +693,12 @@ class Interface():
             keep = ((self.eps_mas * (self.atoms ** exp)) < limit)
             ratio = np.sum(np.logical_not(keep))
             if verbose > 0:
-                print("Matches with (strain * atoms^%s) > %s: %i | Total matches kept: %i"\
-                      % (exp, limit, ratio, np.sum(keep)))
+                string = "Matches with (strain * atoms^%s) > %s: %i | Total matches kept: %i"\
+                         % (exp, limit, ratio, np.sum(keep))
+                ut.infoPrint(string)
 
             """Remove interfaces with strain*atoms^exp > limit"""
-            self.deleteInterfaces(keep)
+            self.deleteInterfaces(keep, verbose = verbose - 1)
 
         """Remove cells with to narrow cell angles, defined below"""
         ang_lim = np.deg2rad(min_angle)
@@ -667,11 +710,12 @@ class Interface():
 
         max_angle = np.sum(np.logical_not(keep))
         if verbose > 0:
-            print("Cell angle outside limit (%.1f<X<%.1f): %i | Total kept: %i"\
-                  % (np.rad2deg(ang_lim), np.rad2deg(np.pi - ang_lim), max_angle, np.sum(keep)))
+            string = "Cell angle outside limit (%.1f<X<%.1f): %i | Total kept: %i"\
+                     % (np.rad2deg(ang_lim), np.rad2deg(np.pi - ang_lim), max_angle, np.sum(keep))
+            ut.infoPrint(string)
 
         """Remove interfaces with angles outside specified range"""
-        self.deleteInterfaces(keep)
+        self.deleteInterfaces(keep, verbose = verbose - 1)
 
         """Remove matches were any strain component is > max_strain"""
         keep = (np.abs(self.eps_11) < max_strain) *\
@@ -680,21 +724,40 @@ class Interface():
 
         max_strain = np.sum(np.logical_not(keep))
         if verbose > 0:
-            print("Matches above max strain: %i | Total matches kept: %i"\
-                  % (max_strain, np.sum(keep)))
+            string = "Matches above max strain: %i | Total matches kept: %i"\
+                     % (max_strain, np.sum(keep))
+            ut.infoPrint(string)
 
         """Remove interfaces with abs(strains) above max_strain"""
-        self.deleteInterfaces(keep)
+        self.deleteInterfaces(keep, verbose = verbose - 1)
 
         """Remove matches with the number of atoms > max_atoms"""
         keep = (self.atoms < max_atoms)
         max_atoms = np.sum(np.logical_not(keep))
         if verbose > 0:
-            print("Matches with to many atoms: %i | Total matches kept: %i"\
-                  % (max_atoms, np.sum(keep)))
+            string = "Matches with to many atoms: %i | Total matches kept: %i"\
+                     % (max_atoms, np.sum(keep))
+            ut.infoPrint(string)
 
         """Remove interfaces with more atoms than max_atoms"""
-        self.deleteInterfaces(keep)
+        self.deleteInterfaces(keep, verbose = verbose - 1)
+
+        """Find duplicates in the combo (nr_atoms, eps_mas) if specified"""
+        if remove_asd:
+            keep = self.getAtomStrainDuplicates(tol_mag = asd_tol, verbose = 0)
+            if verbose > 0:
+                string = "Duplicate atoms/strain combinations: %i | Total matches kept: %i"\
+                         % (np.sum(np.logical_not(keep)), np.sum(keep))
+                ut.infoPrint(string)
+
+            """Remove duplicates"""
+            self.removeAtomStrainDuplicates(tol_mag = asd_tol, verbose = verbose - 1)
+
+        """Remove interfaces based on atom strain ratios, limiting the set to this number"""
+        if limit_asr:
+            self.removeByAtomStrain(keep = limit_asr, tol = asr_tol, max_iter = asr_iter,\
+                                    strain = asr_strain, endpoint = asr_endpoint,\
+                                    verbose = verbose)
 
         """Sort the interaces based on number of atoms"""
         self.sortInterfaces()
@@ -769,8 +832,6 @@ class Interface():
                   dpi = 100):
         """Plot a summary of information for the specified interface"""
 
-        print("Summarize")
-
         hFig = plt.figure(figsize = (8, 6))
 
         """First plot, base view"""
@@ -812,6 +873,7 @@ class Interface():
         hAx.set_yticks([])
         hAx.set_frame_on(False)
 
+        """Forth "plot" printed information"""
         a = self.atoms[idx]
         al = self.getBaseLength(idx = idx, cell = 1)
         bl = self.getBaseLength(idx = idx, cell = 2)
@@ -1057,38 +1119,44 @@ class Interface():
         hAx = plt.subplot(row, col, N)
 
         if eps == "eps_11":
-            hAx.hexbin(np.abs(self.eps_11[idx]) * 100, self.atoms[idx],\
-                       xscale = "log", yscale = "log", mincnt = 1, **kwarg)
+            hb = hAx.hexbin(np.abs(self.eps_11[idx]) * 100, self.atoms[idx],\
+                            xscale = "log", yscale = "log", mincnt = 1, **kwarg)
             x_label = "Strain $abs(\epsilon_{11})$ (%)"
 
             if verbose > 0: print("Showing absolute value of %s" % (eps))
 
         elif eps == "eps_22":
-            hAx.hexbin(np.abs(self.eps_22[idx]) * 100, self.atoms[idx],\
-                       xscale = "log", yscale = "log", mincnt = 1, **kwarg)
+            hb = hAx.hexbin(np.abs(self.eps_22[idx]) * 100, self.atoms[idx],\
+                            xscale = "log", yscale = "log", mincnt = 1, **kwarg)
             x_label = "Strain $abs(\epsilon_{22})$ (%)"
 
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps == "eps_12":
-            hAx.hexbin(np.abs(self.eps_12[idx]) * 100, self.atoms[idx],\
-                       xscale = "log", yscale = "log", mincnt = 1, **kwarg)
+            hb = hAx.hexbin(np.abs(self.eps_12[idx]) * 100, self.atoms[idx],\
+                            xscale = "log", yscale = "log", mincnt = 1, **kwarg)
             x_label = "Strain $abs(\epsilon_{12})$ (%)"
 
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
-            hAx.hexbin(self.eps_mas[idx] * 100, self.atoms[idx],\
-                       xscale = "log", yscale = "log", mincnt = 1, **kwarg)
+            hb = hAx.hexbin(self.eps_mas[idx] * 100, self.atoms[idx],\
+                            xscale = "log", yscale = "log", mincnt = 1, **kwarg)
             x_label = "Strain $\epsilon_{mas}$ (%)"
 
         if handle: return
 
         hAx.set_xlabel(x_label)
         hAx.set_ylabel("Atoms")
+        cb = plt.colorbar(hb, ax = hAx)
+        cb.set_label("Counts")
+
+        if verbose > 0:
+            string = "Total items: %i" % idx.shape[0]
+            ut.infoPrint(string)
 
         plt.tight_layout()
         if save:
             if save is True:
-                ut.save_fig(filename = "hex_combinations.%s" % format, format = format,\
+                ut.save_fig(filename = "Hexbin.%s" % format, format = format,\
                          dpi = dpi, verbose = verbose)
             else:
                 ut.save_fig(filename = save, format = format, dpi = dpi,\
@@ -1129,7 +1197,8 @@ class Interface():
             strain = self.eps_mas
 
         if verbose > 0:
-            print("Items total: %i" % idx.shape[0])
+            string = "Items total: %i" % (idx.shape[0])
+            ut.infoPrint(string)
 
         if mark is not None:
             if isinstance(mark, (int, np.integer)) or isinstance(mark[0], (int, np.integer)):
@@ -1163,7 +1232,8 @@ class Interface():
             hAx.plot(x * 100, const * x ** exp, linewidth = 0.5, color = 'k')
 
             if verbose > 0:
-                print("Items below: %i | Items above: %i" % (np.sum(low), np.sum(hi)))
+                string = "Items below: %i | Items above: %i" % (np.sum(low), np.sum(hi))
+                ut.infoPrint(string)
         else:
             hAx.plot(strain * 100, atoms, color = 'b', linestyle = "None", marker = "o",\
                      mew = 0.5, **kwarg)
@@ -1172,7 +1242,8 @@ class Interface():
             hAx.plot(strain_m * 100, atoms_m, color = 'k', marker = mark_m,\
                      linestyle = "None", markersize = mark_ms, mfc = 'k', mew = 1.2)
             if verbose > 0:
-                print("Items marked: %i" % strain_m.shape[0])
+                string = "Items marked: %i" % (strain_m.shape[0])
+                ut.infoPrint(string)
         
         if handle: return
 
@@ -1185,7 +1256,7 @@ class Interface():
         plt.tight_layout()
         if save:
             if save is True:
-                ut.save_fig(filename = "combinations.%s" % format, format = format,\
+                ut.save_fig(filename = "Combinations.%s" % format, format = format,\
                          dpi = dpi, verbose = verbose)
             else:
                 ut.save_fig(filename = save, format = format, dpi = dpi,\
@@ -1195,8 +1266,20 @@ class Interface():
             plt.show()
 
 
+    def plotProperty(x, y, idx = None, col = 1, row = 1, N = 1, save = False,\
+                     dpi = 100, format = "pdf", verbose = 1, handle = False, **kwarg):
+        """Function for plotting properties agains each other"""
+        
+        print("Plot properties")
+
+
+
+
+
+
+
     def plotEint(self, idx = None, translation = None, col = 1, row = 1,\
-                 N = 1, save = False, dpi = 100, format = "pdf",\
+                 N = 1, save = False, dpi = 100, format = "pdf", verbose = 1,\
                  x_data = "idx", handle = False, **kwarg):
         """Function for plotting interacial energies"""
 
@@ -1237,14 +1320,20 @@ class Interface():
                 hAx.plot(self.atoms[idx], self.e_int[idx, :][:, t - 1],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "Atoms"
-
-
-        if handle: return
+        elif x_data.lower() == "angle":
+            angles = self.getBaseAngles(idx = idx, cell = 1, rad = False)
+            for i, t in enumerate(translation):
+                hAx.plot(angles, self.e_int[idx, :][:, t - 1],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "Cell Angle"
+            hAx.set_xticks(np.arange(0, 180, 15))
 
         hAx.set_xlabel(x_label)
         hAx.set_ylabel("Energy, (eV)")
         hAx.set_title("Work of Adhesion")
         hAx.legend(framealpha = 1)
+
+        if handle: return
         
         plt.tight_layout()
         if save:
