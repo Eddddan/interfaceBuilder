@@ -160,8 +160,6 @@ class Interface():
     def removeAtomStrainDuplicates(self, tol_mag = 7, verbose = 1):
         """Remove interfaces based on duplicates of atom/strain"""
 
-        print("Remove atom strain")
-
         keep = self.getAtomStrainDuplicates(tol_mag = tol_mag, verbose = verbose - 1)
 
         self.deleteInterfaces(keep = keep, verbose = verbose)
@@ -525,7 +523,7 @@ class Interface():
 
 
     def matchCells(self, dTheta = 4, theta = None, n_max = 4, N = None,\
-                   m_max = 4, M = None, max_strain = 1, max_atoms = 1000,\
+                   m_max = 4, M = None, max_strain = 1, max_atoms = 5000,\
                    limit = None, exp = 1, verbose = 1, min_angle = 10,\
                    remove_asd = True, asd_tol = 7, limit_asr = False,\
                    asr_tol = 1e-7, asr_iter = 350, asr_strain = "eps_mas",\
