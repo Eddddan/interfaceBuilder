@@ -341,41 +341,48 @@ def extendCell(base, rep, pos, spec, mass):
     return pos_ext, spec_ext, mass_ext
 
 
-
-def getTranslation(translate, surface, verbose = 1):
+def getTranslation(translation, surface, verbose = 1):
     """Function for getting translation vectors for specific surface"""
 
-    if type(translate) == np.ndarray or type(translate) == list:
-        if np.shape(translate)[0] != 2:
-            return np.array([0, 0, 0])
-        else:
-            T = np.zeros(3)
-            T[0:2] = translate
-            return T
+    if not isinstance(translation, (int, np.integer)):
+        return np.array([0, 0, 0]), "Top"
 
-    if surface == "0001":
-        if translate == 1:
+    if surface.lower() == "0001":
+        if translation == 0:
             site = "Top"
             T = np.array([0, 0, 0])
 
-        elif translate == 2:
+        elif translation == 1:
             site = "Hollow-On"
             T = np.array([2/3, 1/3, 0])
 
-        elif translate == 3:
+        elif translation == 2:
             site = "Hollow-Off"
             T = np.array([1/3, -1/3, 0])
 
-        elif translate == 4:
+        elif translation == 3:
             site = "Bridge"
             T = np.array([0, 1/2, 0])
+
+        elif translation > 3:
+            site = "Translation out of range"
+            T = np.array([0, 0, 0])
             
     if verbose > 0:
         string = "Surface: %s | Translation made to site: %s"\
                  % (surface, site)
         infoPrint(string)
 
-    return T
+    return T, site
+
+
+def getNrTranslations(surface):
+    """Get the total number of deafult translations for the specified surface"""
+
+    if surface == "0001":
+        return 4
+    else:
+        return 0
 
 
 

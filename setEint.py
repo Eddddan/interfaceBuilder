@@ -27,7 +27,7 @@ parser.add_argument("-etpa", "--energy_total_per_area", type = float, required =
                     help = "Total energy per area of the interface combination")
 
 parser.add_argument("-t", "--translation", type = int, required = True,\
-                    help = "Index of the used translation (starts at 1...)")
+                    help = "Index of the used translation (0-based)")
 
 parser.add_argument("-v", "--verbose", action = "count", default = 0,\
                     help = "Print extra information")
@@ -36,12 +36,6 @@ opt = parser.parse_args()
 
 """Load the interfaces from predefined .pkl file"""
 itf = utils.loadInterfaces(filename = opt.input)
-
-"""Get the area of the interface (cell_1)"""
-#area_cell_1 = itf.getArea(idx = opt.index, cell = 1)
-
-"""Calculate the total energy / area (cell_1) for the complete interface"""
-#energy_interface = opt.energy_total / area_cell_1
 
 """Calculate the work of separation E/A (interface) - E/A (slab 1) - E/A (slab 2)"""
 work_sep = opt.energy_total_per_area - opt.energy_per_area[0] - opt.energy_per_area[1]

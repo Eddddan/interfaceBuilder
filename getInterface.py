@@ -24,8 +24,8 @@ bs = ["0001", "10-10"]
 parser.add_argument("-bs", "--bottom_surface", required = True, choices = bs,\
                     help = "Index of bottom surface")
 
-parser.add_argument("-t", "--translate", nargs = "+", default = [0], type = int,\
-                    help = "Index of translation applied to the interface")
+parser.add_argument("-t", "--translate", nargs = "+", default = [-1], type = int,\
+                    help = "Index of translation applied to the interface, 0-based")
 
 parser.add_argument("-d", "--distance", type = float, default = 2.0,\
                     help = "Distance between the surfaces")
@@ -49,13 +49,13 @@ itf = utils.loadInterfaces(filename = opt.input)
 
 """Build interface using default filename"""
 for t in opt.translate:
-    if opt.translate == [0]:
+    if opt.translate == [-1]:
         T = None
         t = ""
     else:
         T = t
 
     itf.exportInterface(idx = opt.index, z_1 = opt.repeat_bottom, z_2 = opt.repeat_top,\
-                        d = opt.distance, format = "lammps", translate = T,\
+                        d = opt.distance, format = "lammps", translation = T,\
                         surface = opt.bottom_surface, anchor = "@%s" % t,\
                         verbose = opt.verbose, vacuum = opt.vacuum)

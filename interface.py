@@ -43,6 +43,7 @@ class Interface():
         self.atoms = None
         self.ang = None
         self.e_int = None
+        self.translations = None
 
         self.base_1 = structure_a.cell
         self.base_2 = structure_b.cell
@@ -79,7 +80,7 @@ class Interface():
 
 
 
-    def sortInterfaces(self, sort = "atoms", rev = False):
+    def sortInterfaces(self, sort = "atoms", opt = None, rev = False):
         """Function for sorting the interfaces"""
 
         sort = sort.lower()
@@ -93,7 +94,8 @@ class Interface():
         elif sort == "angle":
             si = np.argsort(self.ang)
         elif sort == "e_int":
-            si = np.argsort(self.e_int)
+            """Opt int corresponding to chosen translation (1-based as translation)"""
+            si = np.argsort(self.e_int[opt - 1])
         elif sort == "eps_11":
             si = np.argsort(np.abs(self.eps_11))
         elif sort == "eps_22":
@@ -379,23 +381,23 @@ class Interface():
         return A, B
 
 
-    def setEint(self, idx, e_int, translation = 1, verbose = 1):
+    def setEint(self, idx, e_int, translation = 0, verbose = 1):
         """Function for setting the interfacial energies of different translations
 
            idx - int representing interface index, 0-based.
 
-           translation - int representing the specific translation, 1-based.
+           translation - int representing the specific translation, 0-based.
 
            e_int - int representing the energy value"""
         
         s = self.e_int.shape
         t = translation
 
-        if t > s[1]:
-            self.e_int = np.concatenate((self.e_int, np.zeros((s[0], t - s[1]))), axis = 1)
+        if (t + 1) > s[1]:
+            self.e_int = np.concatenate((self.e_int, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
             if verbose > 0:
                 string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
-                         % (s[0], s[1], s[0], t)
+                         % (s[0], s[1], s[0], (t + 1))
                 ut.infoPrint(string)
         
         if verbose > 0:
@@ -403,7 +405,7 @@ class Interface():
                      % (e_int, t, idx)
             ut.infoPrint(string)
 
-        self.e_int[idx, t - 1] = e_int
+        self.e_int[idx, t] = e_int
 
 
     def setEintArray(self, idx, translation, e_int, verbose = 1):
@@ -411,7 +413,7 @@ class Interface():
 
            idx - 1d vector of interface index, 0 based.
 
-           translation - 1d vector of column index, 1 based.
+           translation - 1d vector of column index, 0 based.
 
            e_int - 2d array of shape (idx,translation) containing energies."""
 
@@ -433,9 +435,9 @@ class Interface():
                          % (s[0], s[1], s[0], np.max(t))
                 ut.infoPrint(string)
 
-        """t 1-based!"""
+        """t 0-based!"""
         for i, col in enumerate(t):
-            self.e_int[idx, col - 1] = e_int[:, i]
+            self.e_int[idx, col] = e_int[:, i]
 
 
 
@@ -759,6 +761,28 @@ class Interface():
 
         """Sort the interaces based on number of atoms"""
         self.sortInterfaces()
+
+
+
+    def printTranslation(self, surface, translation = None, verbose = 1):
+        """Function for printing the specified translations"""
+
+        if translation is None: translation = range(ut.getNrTranslations(surface = surface))
+        if isinstance(translation, (int, np.integer)): translation = [translation]
+
+        for t in translation:
+            trans, site = ut.getTranslation(surface = surface, translation = t, verbose = verbose - 1)
+            
+            string = "Translation: %i, x: %5.2f, y: %5.2f, Site name: %s" % (t, trans[0], trans[1], site) 
+            ut.infoPrint(string)
+
+
+    def plotTranslations(self, surface, translation = None):
+        """unction for plotting specified translations"""
+        print("Do something")
+
+        
+
 
 
 
@@ -1223,9 +1247,9 @@ class Interface():
                      marker = "o", mew = 0.5, **kwarg)
 
             """Plot the dividing line for the specified limit"""
-            j = np.lexsort((atoms, strain))[0]
-            k = np.lexsort((strain, atoms))[0]
-            x = np.logspace(np.log(strain[j]), np.log(strain[k]), 1000, base = np.exp(1))
+            j = np.log(np.max(atoms) / const) / exp
+            k = np.log(np.min(atoms) / const) / exp
+            x = np.logspace(j, k, 1000, base = np.exp(1))
 
             hAx.plot(x * 100, const * x ** exp, linewidth = 0.5, color = 'k')
 
@@ -1404,7 +1428,7 @@ class Interface():
             self.e_int = self.e_int[:, None]
 
         for i in range(self.e_int.shape[1]):
-            key = "E_int_T%i" % (i + 1)
+            key = "E_int_T%i" % (i)
             dataDict[key] = np.round(self.e_int[idx, i], prec)
 
         data = pd.DataFrame(dataDict)
@@ -1421,7 +1445,7 @@ class Interface():
 
 
     def buildInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
-                       verbose = 1, vacuum = 0, translate = None,\
+                       verbose = 1, vacuum = 0, translation = None,\
                        surface = None, anchor = "@"):
         """Function for build a specific interface"""
 
@@ -1498,8 +1522,8 @@ class Interface():
         pos[:, pos_1_ext.shape[1]:] = pos_2_F
 
         """If a translation is specified shift (x,y) coordinates of top cell accordingly""" 
-        if translate is not None:
-            T = ut.getTranslation(translate, surface, verbose = verbose)
+        if translation is not None:
+            T = ut.getTranslation(translation, surface, verbose = verbose)[0]
             cT = np.matmul(self.base_1, T)
             pos[:, pos_1_ext.shape[1]:] = pos[:, pos_1_ext.shape[1]:] + cT[:, np.newaxis]
             if verbose: 
@@ -1536,20 +1560,20 @@ class Interface():
 
     def exportInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
                         verbose = 1, format = "lammps",\
-                        filename = None, vacuum = 0, translate = None,\
+                        filename = None, vacuum = 0, translation = None,\
                         surface = None, anchor = "@"):
         """Function for writing an interface to a specific file format"""
 
         if filename is None:
-            if translate is None:
+            if translation is None:
                 filename = "interface_%s.%s" % (idx, format)
             else:
-                filename = "interface_%s_T%s.%s" % (idx, translate, format)
+                filename = "interface_%s_T%s.%s" % (idx, translation, format)
 
         """Build the selected interface"""
         base, pos, type_n, mass = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
                                                 verbose = verbose, vacuum = vacuum,\
-                                                translate = translate, surface = surface,\
+                                                translation = translation, surface = surface,\
                                                 anchor = anchor)
 
         """Sort first based on type then Z-position then Y-position"""
@@ -1687,19 +1711,19 @@ class Interface():
 
     def buildInterfaceStructure(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
                                 verbose = 1, filename = None,\
-                                vacuum = 0, translate = None, surface = None):
+                                vacuum = 0, translation = None, surface = None):
         """Function for writing an interface to a specific file format"""
 
         if filename is None:
-            if translate is None:
+            if translation is None:
                 filename = "InterfaceStructure_%s" % (idx)
             else:
-                filename = "InterfaceStructure_%s_T%s" % (idx, translate)
+                filename = "InterfaceStructure_%s_T%s" % (idx, translation)
 
         """Build the selected interface"""
         base, pos, type_n, mass = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
                                                 verbose = verbose, vacuum = vacuum,\
-                                                translate = translate, surface = surface)
+                                                translation = translation, surface = surface)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
