@@ -461,6 +461,19 @@ class Interface():
             return np.abs(np.cross(self.cell_2[idx, :, 0], self.cell_2[idx, :, 1]))
 
 
+    def getCellLengths(self, idx, cell = 1):
+        """Function for getting the cell lengths of specified interfaces"""
+
+        if not isinstance(idx, (np.ndarray, range, list)):
+            idx = [idx]
+
+        if cell == 1:
+            norms = np.linalg.norm(self.cell_1[idx, :, :], axis = 1)
+        elif cell == 2:
+            norms = np.linalg.norm(self.cell_1[idx, :, :], axis = 1)
+
+        return norms
+
 
     def getBaseAngle(self, idx, cell = 1, rad = True):
         """Function for getting the angle of the specified interface and surface"""
@@ -1315,43 +1328,89 @@ class Interface():
 
         if x_data.lower() == "idx":
             for i, t in enumerate(translation):
-                hAx.plot(self.e_int[idx, :][:, t], label = "$T_{%i}$" % t, **kwarg)
+                hAx.plot(idx, self.e_int[idx, :][:, t], label = "$T_{%i}$" % t, **kwarg)
             x_label = "Index"
+
         elif x_data.lower() == "eps_11":
             for i, t in enumerate(translation):
                 hAx.plot(self.eps_11[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "$\epsilon_{11}$"
+
         elif x_data.lower() == "eps_22":
             for i, t in enumerate(translation):
                 hAx.plot(self.eps_22[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "$\epsilon_{22}$"
+
         elif x_data.lower() == "eps_12":
             for i, t in enumerate(translation):
                 hAx.plot(self.eps_12[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "$\epsilon_{12}$"
+
         elif x_data.lower() == "eps_mas":
             for i, t in enumerate(translation):
                 hAx.plot(self.eps_mas[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "$\epsilon_{mas}$"
+
         elif x_data.lower() == "atoms":
             for i, t in enumerate(translation):
                 hAx.plot(self.atoms[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "Atoms"
+
         elif x_data.lower() == "angle":
             angles = self.getBaseAngles(idx = idx, cell = 1, rad = False)
             for i, t in enumerate(translation):
                 hAx.plot(angles, self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
-            x_label = "Cell Angle"
+            x_label = "Cell Angle, (Deg)"
             hAx.set_xticks(np.arange(0, 180, 15))
 
+        elif x_data.lower() == "norm":
+            norm = np.sqrt(self.eps_11[idx]**2 + self.eps_22[idx]**2 + self.eps_12[idx]**2)
+            for i, t in enumerate(translation):
+                hAx.plot(norm, self.e_int[idx, :][:, t],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$"
+
+        elif x_data.lower() == "rotation":
+            for i, t in enumerate(translation):
+                hAx.plot(self.ang[idx], self.e_int[idx, :][:, t],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "Initial rotaion of top cell, (Deg)"
+
+        elif x_data.lower() == "length_1":
+            norms = self.getCellLengths(idx = idx, cell = 1)
+            for i, t in enumerate(translation):
+                hAx.plot(norms[:, 0], self.e_int[idx, :][:, t],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "Length $a_1$, ($\AA^2$)"
+
+        elif x_data.lower() == "length_2":
+            norms = self.getCellLengths(idx = idx, cell = 1)
+            for i, t in enumerate(translation):
+                hAx.plot(norms[:, 1], self.e_int[idx, :][:, t],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "Length $a_2$, ($\AA^2$)"
+
+        elif x_data.lower() == "area":
+            area = self.getAreas(idx = idx, cell = 1)
+            for i, t in enumerate(translation):
+                hAx.plot(area, self.e_int[idx, :][:, t],\
+                         label = "$T_{%i}$" % t, **kwarg)
+            x_label = "Area, ($\AA2$)"
+
+        else:
+            plt.close()
+            string = "Unrecognized x_data argument: %s" % x_data
+            ut.infoPrint(string)
+            return
+
         hAx.set_xlabel(x_label)
-        hAx.set_ylabel("Energy, (eV)")
+        hAx.set_ylabel("Energy, (eV/$\AA^2$)")
         hAx.set_title("Work of Adhesion")
         hAx.legend(framealpha = 1)
 
