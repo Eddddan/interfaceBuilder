@@ -1315,37 +1315,37 @@ class Interface():
 
         if x_data.lower() == "idx":
             for i, t in enumerate(translation):
-                hAx.plot(self.e_int[idx, :][:, t - 1], label = "$T_{%i}$" % t, **kwarg)
+                hAx.plot(self.e_int[idx, :][:, t], label = "$T_{%i}$" % t, **kwarg)
             x_label = "Index"
         elif x_data.lower() == "eps_11":
             for i, t in enumerate(translation):
-                hAx.plot(self.eps_11[idx], self.e_int[idx, :][:, t - 1],\
+                hAx.plot(self.eps_11[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "$\epsilon_{11}$"
         elif x_data.lower() == "eps_22":
             for i, t in enumerate(translation):
-                hAx.plot(self.eps_22[idx], self.e_int[idx, :][:, t - 1],\
+                hAx.plot(self.eps_22[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "$\epsilon_{22}$"
         elif x_data.lower() == "eps_12":
             for i, t in enumerate(translation):
-                hAx.plot(self.eps_12[idx], self.e_int[idx, :][:, t - 1],\
+                hAx.plot(self.eps_12[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "$\epsilon_{12}$"
         elif x_data.lower() == "eps_mas":
             for i, t in enumerate(translation):
-                hAx.plot(self.eps_mas[idx], self.e_int[idx, :][:, t - 1],\
+                hAx.plot(self.eps_mas[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "$\epsilon_{mas}$"
         elif x_data.lower() == "atoms":
             for i, t in enumerate(translation):
-                hAx.plot(self.atoms[idx], self.e_int[idx, :][:, t - 1],\
+                hAx.plot(self.atoms[idx], self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "Atoms"
         elif x_data.lower() == "angle":
             angles = self.getBaseAngles(idx = idx, cell = 1, rad = False)
             for i, t in enumerate(translation):
-                hAx.plot(angles, self.e_int[idx, :][:, t - 1],\
+                hAx.plot(angles, self.e_int[idx, :][:, t],\
                          label = "$T_{%i}$" % t, **kwarg)
             x_label = "Cell Angle"
             hAx.set_xticks(np.arange(0, 180, 15))
