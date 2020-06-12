@@ -2,7 +2,7 @@
 
 import sys
 import numpy as np
-
+import utils as ut
 
 
 def len2mat(vec, ang, prec = 10):
@@ -66,8 +66,12 @@ def mat2LammpsBox(mat, prec = 10):
     return box
 
 
-def readEON(filename):
+def readEON(filename, verbose = 1):
     """Load EON geometry file"""
+
+    if verbose > 0:
+        string = "Reading file: %s, format: EON" % filename
+        ut.infoPrint(string)
 
     """Lines to skip"""
     skip = [0, 1, 4, 5, 10]
@@ -95,18 +99,20 @@ def readEON(filename):
                 n = 0; nt = 0
                 pos = np.zeros((Nt[-1], 3))
                 idx = np.zeros(Nt[-1])
+                mass = np.ones(Nt)
             elif i == 8:
                 """Mass"""
-                mass = np.array([np.float(x) for x in line.split()])
+                masses = np.array([np.float(x) for x in line.split()])
             elif i == 9:
                 """Atom type of species 1"""
                 t = np.chararray(Nt[-1], itemsize = 2)
                 t[:Nt[nt]] = line
-
+                mass[:Nt[nt]] = [masses[nt]]
             elif i > 10:
                 l = line.split()
                 if len(l) == 1:
                     t[Nt[nt] : Nt[nt + 1]] = line
+                    mass[Nt[nt] : Nt[nt + 1]] = [masses[nt + 1]]
                     nt += 1
                 elif len(l) == 4:
                     continue
@@ -118,19 +124,95 @@ def readEON(filename):
     """Convert lengths and angles to cell vectors"""
     mat = len2mat(vec, ang)
 
-    return mat, pos, t, idx
+    return mat, pos, t, idx, mass
 
             
 
-def readLAMMPS(filename):
+def readLAMMPS(filename, verbose = 1):
     """Load LAMMPS geometry file"""
-    print("loadLAMMPS")
+
+    if verbose > 0:
+        string = "Reading file: %s, format: LAMMPS" % filename
+        ut.infoPrint(string)
+
+    with open(filename, "r") as f:
+        f.readline() #Skip first line (comment)
+
+        for i, line in enumerate(f):
+            if line in ['\n', '\r\n']: continue #Continue if empty
+                
+            l = line.split()
+            if len(l) == 2 and l[1] == "atoms":
+                t = np.ones(np.int(l[0]), dtype = np.int)
+                idx = np.zeros(np.int(l[0]), dtype = np.int)
+                mat = np.zeros((3, 3))
+                pos = np.zeros((np.int(l[0]), 3))
+                mass = np.ones(np.int(l[0]))
+                nr = np.int(l[0])
+            elif len(l) == 3 and l[2] == "types":
+                masses = np.zeros(np.int(l[0]))
+                types = np.int(l[0])
+                break
+
+        for i, line in enumerate(f) :
+            if line in ['\n', '\r\n']: continue
+
+            l = line.split()
+            if len(l) == 4 and l[2] == "xlo":
+                mat[0, 0] = np.float(l[1]) - np.float(l[0]) # xhi - xlo
+            elif len(l) == 4 and l[2] == "ylo":
+                mat[1, 1] = np.float(l[1]) - np.float(l[0]) # yhi - ylo
+            elif len(l) == 4 and l[2] == "zlo":
+                mat[2, 2] = np.float(l[1]) - np.float(l[0]) # zhi - zlo
+            elif len(l) == 6 and l[3] == "xy":
+                mat[0, 1] = np.float(l[0]) # xy
+                mat[0, 2] = np.float(l[1]) # xz
+                mat[1, 2] = np.float(l[2]) # yz
+                break
+
+        for i, line in enumerate(f):
+            if line in ['\n', '\r\n']: continue
+            
+            n = 0
+            if line.startswith("Masses"): #Read everything associated with the Masses tag
+                for j, subline in enumerate(f):
+                    if subline in ['\n', '\r\n']: continue
+                    
+                    l = subline.split()
+                    masses[np.int(l[0]) - 1] = np.float(l[1])
+
+                    n += 1
+                    if n == types:
+                        break
+
+            n = 0
+            if line.startswith("Atoms"): #Read everything associated with the Atoms tag
+                if line in ['\n', '\r\n']: continue
+
+                for j, subline in enumerate(f):
+                    if subline in ['\n', '\r\n']: continue
+                    
+                    l = subline.split()
+                    idx[n] = np.int(l[0]) - 1
+                    t[n] = np.int(l[1])
+                    pos[n, :] = (np.float(l[2]), np.float(l[3]), np.float(l[4]))
+                    mass[n] = masses[t[n] - 1]
+                    
+                    n += 1
+                    if n == nr:
+                        break
+        
+    return mat, pos, t, idx, mass
 
 
 
-def writeLAMMPS(filename, atoms):
+def writeLAMMPS(filename, atoms, verbose = 1):
     """Write a LAMMPS data file"""
     
+    if verbose > 0:
+        string = "Writing file: %s, format: LAMMPS" % filename
+        ut.infoPrint(string)
+
     with open(filename, "w") as f:
         
         """Newline character"""
@@ -142,8 +224,6 @@ def writeLAMMPS(filename, atoms):
         masses = np.zeros(nr_types)
         for i, item in enumerate(np.unique(atoms.type_i)):
             masses[i] = atoms.mass[atoms.type_i == item][0]
-
-        #masses = np.unique(atoms.mass)
 
         """First a comment line"""
         f.write("LAMMPS-data file written from file_io.py\n")
@@ -180,13 +260,25 @@ def readVASP(filename):
 
 
 
+def writeVASP(filename, atoms):
+    """Write VASP POSCAR file"""
+
+    print("Write VASP")
+
+
+
+
 def readXYZ(filename):
     """Load XYZ geometry file"""
     print("loadXYZ")
 
 
-def writeXYZ(filename, atoms):
+def writeXYZ(filename, atoms, verbose = 1):
     """Write a XYZ data file"""
+
+    if verbose > 0:
+        string = "Writing file: %s, format: XYZ" % filename
+        ut.infoPrint(string)
 
     with open(filename, "w") as f:
         
@@ -216,20 +308,20 @@ def readData(filename, format = "eon"):
     """Entry point for loading geometry files"""
 
     if "eon".startswith(format.lower()):
-        mat, pos, t, idx = readEON(filename)
-        return mat, pos, t, idx
+        mat, pos, t, idx, mass = readEON(filename)
+        return mat, pos, t, idx, mass
 
     elif "lammps".startswith(format.lower()):
-        mat, pos, t, idx = readLAMMPS(filename)
-        return mat, pos, t, idx
+        mat, pos, t, idx, mass = readLAMMPS(filename)
+        return mat, pos, t, idx, mass
 
     elif "vasp".startswith(format.lower()):
-        mat, pos, t, idx = readVASP(filename)
-        return mat, pos, t, idx
+        mat, pos, t, idx, mass = readVASP(filename)
+        return mat, pos, t, idx, mass
 
     elif "xyz".startswith(format.lower()):
-        mat, pos, t, idx = readXYZ(filename)
-        return mat, pos, t, idx
+        mat, pos, t, idx, mass = readXYZ(filename)
+        return mat, pos, t, idx, mass
 
     else:
         print("Unrecognized file format")

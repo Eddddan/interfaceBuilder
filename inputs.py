@@ -31,11 +31,11 @@ def getInputs(lattice):
         """BCC W Lattice with 100 surface relaxed using LAMMPS"""
         """Updated 2020-05-13"""
         cell = np.array([[3.164917,        0, 0       ],\
-                             [       0, 3.164917, 0       ],\
-                             [       0,        0, 3.164917]])
+                         [       0, 3.164917, 0       ],\
+                         [       0,        0, 3.164917]])
         
         pos = np.array([[       0,        0,        0],\
-                            [1.582459, 1.582459, 1.582459]])
+                        [1.582459, 1.582459, 1.582459]])
         
         spec = np.chararray(shape = 2, itemsize = 2)
         spec[:] = 'W'
@@ -44,8 +44,22 @@ def getInputs(lattice):
 
 
         
-    elif lattice == "W110":
-        print("Do W110")
+    elif lattice == "W110_L":
+        """BCC W Lattice with 110 surface relaxed using LAMMPS"""
+        """Updated 2020-06-12"""
+        cell = np.array([[3.164917,        0, 0       ],\
+                         [       0, 4.475869, 0       ],\
+                         [       0,        0, 4.475869]])
+        
+        pos = np.array([[0       , 2.237935, 0       ],\
+                        [1.582459, 0,        0       ],\
+                        [0       , 0,        2.237935],\
+                        [1.582459, 2.237935, 2.237935]])
+        
+        spec = np.chararray(shape = 4, itemsize = 2)
+        spec[:] = 'W'
+
+        mass = np.array([183.84, 183.84, 183.84, 183.84])
 
 
         

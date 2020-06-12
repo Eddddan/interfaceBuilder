@@ -7,6 +7,7 @@ import utils as ut
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 """Set some plotting defaults"""
 plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium",\
@@ -23,11 +24,6 @@ class Interface():
     Class for holdiding a collection of generated interfaces.
     """
 
-    __slots__ = ['cell_1', 'cell_2', 'rep_1', 'rep_2', 'eps_11', 'eps_22',\
-                 'eps_12', 'eps_mas', 'atoms', 'ang', 'e_int', 'base_1',\
-                 'base_2', 'pos_1', 'pos_2', 'spec_1', 'spec_2', 'mass_1',\
-                 'mass_2']
-
     def __init__(self,\
                  structure_a,\
                  structure_b):
@@ -42,8 +38,13 @@ class Interface():
         self.eps_mas = None
         self.atoms = None
         self.ang = None
-        self.e_int = None
         self.translations = None
+
+        """E_i/A - E_s1/A - E_s2/A (Interface - slabs)"""
+        self.w_sep = None
+
+        """E_i/A - E_b1/A - E_b2/A (Interface - bulk)"""
+        self.e_int = None
 
         self.base_1 = structure_a.cell
         self.base_2 = structure_b.cell
@@ -72,6 +73,7 @@ class Interface():
         self.atoms = self.atoms[keep]
         self.ang = self.ang[keep]
         self.e_int = self.e_int[keep]
+        self.w_sep = self.w_sep[keep]
 
         if verbose > 0:
             string = "Interfaces deleted: %i | Interfaces remaining: %i"\
@@ -86,7 +88,7 @@ class Interface():
         sort = sort.lower()
         sortable_properties = ["atoms",   "angle",  "area",\
                                "eps_11",  "eps_22", "eps_12",\
-                               "eps_mas", "e_int",\
+                               "eps_mas", "e_int", "w_sep",\
                                "base_angle_1", "base_angle_2"]
 
         if sort == "atoms":
@@ -94,8 +96,11 @@ class Interface():
         elif sort == "angle":
             si = np.argsort(self.ang)
         elif sort == "e_int":
-            """Opt int corresponding to chosen translation (1-based as translation)"""
-            si = np.argsort(self.e_int[opt - 1])
+            """Opt int corresponding to chosen translation (0-based as translation)"""
+            si = np.argsort(self.e_int[opt])
+        elif sort == "w_sep":
+            """Opt int corresponding to chosen translation (0-based as translation)"""
+            si = np.argsort(self.w_sep[opt])
         elif sort == "eps_11":
             si = np.argsort(np.abs(self.eps_11))
         elif sort == "eps_22":
@@ -139,6 +144,7 @@ class Interface():
         self.atoms = self.atoms[index]
         self.ang = self.ang[index]
         self.e_int = self.e_int[index]
+        self.w_sep = self.w_sep[index]
 
 
     def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1):
@@ -249,7 +255,6 @@ class Interface():
 
 
 
-
     def getAtomStrainRatio(self, strain = "eps_mas", const = None, exp = 1, verbose = 1):
         """Get the property atoms - A * abs(strain) ** B"""
 
@@ -335,33 +340,52 @@ class Interface():
     def getAtomStrainExpression(self, strain = "eps_mas", verbose = 1):
         """Get the curve from min(log(abs(strain))) --> min(log(atoms))"""
 
-        if strain.lower() == "eps_11":
-            si1 = np.lexsort((self.atoms, np.abs(self.eps_11)))[0]
-            si2 = np.lexsort((np.abs(self.eps_11), self.atoms))[0]
+        """Ignore matches which are exactly 0 in the construction of the expression"""
+        tol = 1e-12
 
-            eps = np.array([np.abs(self.eps_11[si1]), np.abs(self.eps_11[si2])])
-            atoms = np.array([self.atoms[si1], self.atoms[si2]])
+        if strain.lower() == "eps_11":
+            si1 = np.lexsort((self.atoms * -1, np.abs(self.eps_11)))#[0]
+            si2 = np.lexsort((np.abs(self.eps_11), self.atoms))#[0]
+            
+            eps_idx = np.argmax(np.abs(self.eps_11[si1][0] - self.eps_11[si2]) > tol)
+            eps = np.array([np.abs(self.eps_11[si1][0]), np.abs(self.eps_11[si2][eps_idx])])
+            atoms = np.array([self.atoms[si1][0], self.atoms[si2][eps_idx]])
+
+            #eps = np.array([np.abs(self.eps_11[si1]), np.abs(self.eps_11[si2])])
+            #atoms = np.array([self.atoms[si1], self.atoms[si2]])
 
         elif strain.lower() == "eps_22":
-            si1 = np.lexsort((self.atoms, np.abs(self.eps_22)))[0]
-            si2 = np.lexsort((np.abs(self.eps_22), self.atoms))[0]
+            si1 = np.lexsort((self.atoms * -1, np.abs(self.eps_22)))#[0]
+            si2 = np.lexsort((np.abs(self.eps_22), self.atoms))#[0]
 
-            eps = np.array([np.abs(self.eps_22[si1]), np.abs(self.eps_22[si2])])
-            atoms = np.array([self.atoms[si1], self.atoms[si2]])
+            eps_idx = np.argmax(np.abs(self.eps_22[si1][0] - self.eps_22[si2]) > tol)
+            eps = np.array([np.abs(self.eps_22[si1][0]), np.abs(self.eps_22[si2][eps_idx])])
+            atoms = np.array([self.atoms[si1][0], self.atoms[si2][eps_idx]])
+
+            #eps = np.array([np.abs(self.eps_22[si1]), np.abs(self.eps_22[si2])])
+            #atoms = np.array([self.atoms[si1], self.atoms[si2]])
 
         elif strain.lower() == "eps_12":
-            si1 = np.lexsort((self.atoms, np.abs(self.eps_12)))[0]
-            si2 = np.lexsort((np.abs(self.eps_12), self.atoms))[0]
+            si1 = np.lexsort((self.atoms * -1, np.abs(self.eps_12)))#[0]
+            si2 = np.lexsort((np.abs(self.eps_12), self.atoms))#[0]
 
-            eps = np.array([np.abs(self.eps_12[si1]), np.abs(self.eps_12[si2])])
-            atoms = np.array([self.atoms[si1], self.atoms[si2]])
+            eps_idx = np.argmax(np.abs(self.eps_12[si1][0] - self.eps_12[si2]) > tol)
+            eps = np.array([np.abs(self.eps_12[si1][0]), np.abs(self.eps_12[si2][eps_idx])])
+            atoms = np.array([self.atoms[si1][0], self.atoms[si2][eps_idx]])
+
+            #eps = np.array([np.abs(self.eps_12[si1]), np.abs(self.eps_12[si2])])
+            #atoms = np.array([self.atoms[si1], self.atoms[si2]])
 
         elif strain.lower() == "eps_mas":
-            si1 = np.lexsort((self.atoms, self.eps_mas))[0]
-            si2 = np.lexsort((self.eps_mas, self.atoms))[0]
+            si1 = np.lexsort((self.atoms * -1, self.eps_mas))#[0]
+            si2 = np.lexsort((self.eps_mas, self.atoms))#[0]
 
-            eps = np.array([self.eps_mas[si1], self.eps_mas[si2]])
-            atoms = np.array([self.atoms[si1], self.atoms[si2]])
+            eps_idx = np.argmax(np.abs(self.eps_mas[si1][0] - self.eps_mas[si2]) > tol)
+            eps = np.array([self.eps_mas[si1][0], self.eps_mas[si2][eps_idx]])
+            atoms = np.array([self.atoms[si1][0], self.atoms[si2][eps_idx]])
+
+            #eps = np.array([self.eps_mas[si1], self.eps_mas[si2]])
+            #atoms = np.array([self.atoms[si1], self.atoms[si2]])
 
         else:
             print("Unknown option: %s" % strain)
@@ -369,7 +393,7 @@ class Interface():
 
         eps = np.log(eps)
         atoms = np.log(atoms)
-        
+
         """In y = A*x**B find A and B"""
         B = (atoms[1] - atoms[0]) / (eps[1] - eps[0])
         A = np.exp(atoms[0] - B * eps[0])
@@ -429,7 +453,7 @@ class Interface():
         t = translation
 
         if np.max(t) > s[1]:
-            self.e_int = np.concatenate((self.e_int, np.zeros((s[0], np.max(t) - s[1]))), axis = 1)
+            self.e_int = np.concatenate((self.e_int, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
             if verbose > 0:
                 string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], np.max(t))
@@ -438,6 +462,65 @@ class Interface():
         """t 0-based!"""
         for i, col in enumerate(t):
             self.e_int[idx, col] = e_int[:, i]
+
+
+    def setWsep(self, idx, w_sep, translation = 0, verbose = 1):
+        """Function for setting the work of sepparation of different translations
+
+           idx - int representing interface index, 0-based.
+
+           translation - int representing the specific translation, 0-based.
+
+           w_sep - int representing the energy value"""
+        
+        s = self.w_sep.shape
+        t = translation
+
+        if (t + 1) > s[1]:
+            self.w_sep = np.concatenate((self.w_sep, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+            if verbose > 0:
+                string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
+                         % (s[0], s[1], s[0], (t + 1))
+                ut.infoPrint(string)
+        
+        if verbose > 0:
+            string = "E_int set to: %.2f at translation: %i for interface: %i"\
+                     % (w_sep, t, idx)
+            ut.infoPrint(string)
+
+        self.w_sep[idx, t] = w_sep
+
+
+    def setWsepArray(self, idx, translation, w_sep, verbose = 1):
+        """Function for setting the work of sepparation from an array of values
+
+           idx - 1d vector of interface index, 0 based.
+
+           translation - 1d vector of column index, 0 based.
+
+           w_sep - 2d array of shape (idx,translation) containing energies."""
+
+        """Check inputs"""
+        if not isinstance(translation, (np.ndarray, list, range)):
+            print("<translation> parameter must be a np.ndarray, list or range")
+            return
+        if not isinstance(idx, (np.ndarray, list, range)):
+            print("<idx> parameter must be a np.ndarray, list or range")
+            return
+        
+        s = self.w_sep.shape
+        t = translation
+
+        if np.max(t) > s[1]:
+            self.w_sep = np.concatenate((self.w_sep, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+            if verbose > 0:
+                string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
+                         % (s[0], s[1], s[0], np.max(t))
+                ut.infoPrint(string)
+
+        """t 0-based!"""
+        for i, col in enumerate(t):
+            self.w_sep[idx, col] = w_sep[:, i]
 
 
 
@@ -558,21 +641,21 @@ class Interface():
             angle = np.arange(0, 180, dTheta)
 
         """Repetions of the first cell vector, [-n_max,...,n_max],
-           N takes president as a single specific repitition"""
-        if N is not None:
-            nR = np.arange(N, N + 1)
-        else:
+           N takes president as a specific range of repititions"""
+        if N is None:
             nR = np.arange(-n_max, n_max + 1)
 
         """Repetions of the second cell vector, [0,...,m_max],
-           M takes president as a single specific repitition"""
-        if M is not None:
-            mR = np.arange(M, M + 1)
-        else:
+           M takes president as a specific range of repititions"""
+        if M is None:
             mR = np.arange(0, m_max + 1)
 
-        """Create all permutations of nR and mR"""
-        dPerm = np.mgrid[nR[0]:nR[-1] + 1, mR[0]:mR[-1] + 1].reshape(2, nR.shape[0] * mR.shape[0])
+        """Create all permutations of nR and mR if M,N is specifed use only those"""
+        if M is not None and N is not None:
+            M = np.array(M)[:, None]; N = np.array(N)[:, None]
+            dPerm = np.concatenate((M, N), axis = 1)
+        else:
+            dPerm = np.mgrid[nR[0]:nR[-1] + 1, mR[0]:mR[-1] + 1].reshape(2, nR.shape[0] * mR.shape[0])
 
         """Convert angle to radians"""
         aRad = np.deg2rad(angle)
@@ -698,6 +781,7 @@ class Interface():
         self.atoms = atoms[keep]
         self.ang = ang[keep]
         self.e_int = np.zeros((self.atoms.shape[0], 1))
+        self.w_sep = np.zeros((self.atoms.shape[0], 1))
 
         """Further removal of interfaces based on specified critera follows below"""
 
@@ -766,8 +850,19 @@ class Interface():
             """Remove duplicates"""
             self.removeAtomStrainDuplicates(tol_mag = asd_tol, verbose = verbose - 1)
 
+        """Interfaces with |strains| < tol are slightly perturbed to avoid issues with log expressions"""
+        tol = 1e-7
+        exact_matches = np.abs(self.eps_mas) < tol
+        self.eps_11[np.abs(self.eps_11) < tol] = tol
+        self.eps_22[np.abs(self.eps_22) < tol] = tol
+        self.eps_12[np.abs(self.eps_12) < tol] = tol
+        self.eps_mas[np.abs(self.eps_mas) < tol] = tol
+        if np.sum(exact_matches) > 0:
+            string = "Exact matches found: %i" % np.sum(exact_matches)
+            ut.infoPrint(string)
+
         """Remove interfaces based on atom strain ratios, limiting the set to this number"""
-        if limit_asr:
+        if limit_asr and self.atoms.shape[0] > 2:
             self.removeByAtomStrain(keep = limit_asr, tol = asr_tol, max_iter = asr_iter,\
                                     strain = asr_strain, endpoint = asr_endpoint,\
                                     verbose = verbose)
@@ -918,26 +1013,31 @@ class Interface():
         rot = self.ang[idx]
 
         string1 = "Index: %i\nAtoms: %i\nLength ($a_1,a_2$): %.2f, %.2f\nLength ($b_1,b_2$): %.2f, %.2f\n"\
-                  "Angle ($a_1/a_2$): %.2f\nAngle ($b_1/b_2$): %.2f\nArea: %.2f\nRotation: %.1f\n\n"\
+                  "Angle ($a_1/a_2$): %.2f\nAngle ($b_1/b_2$): %.2f\nArea: %.2f\nRotation: %.1f\n"\
                   % (idx, a, al[0], al[1], bl[0], bl[1], aa, ab, area, rot)
 
         string2 = "$\epsilon_{11}$,$\epsilon_{22}$,$\epsilon_{12}$,$\epsilon_{mas}$: %6.2f, %6.2f, %6.2f, %6.2f\n"\
                   "$a_{1x},a_{1y},a_{2x},a_{2y}$: %3i, %3i, %3i, %3i\n"\
-                  "$b_{1x},b_{1y},b_{2x},b_{2y}$: %3i, %3i, %3i, %3i\n\n" % (self.eps_11[idx]*100, self.eps_22[idx]*100,\
+                  "$b_{1x},b_{1y},b_{2x},b_{2y}$: %3i, %3i, %3i, %3i\n" % (self.eps_11[idx]*100, self.eps_22[idx]*100,\
                   self.eps_12[idx]*100, self.eps_mas[idx]*100, self.rep_1[idx, 0, 0], self.rep_1[idx, 1, 0],\
                   self.rep_1[idx, 0, 1], self.rep_1[idx, 1, 1], self.rep_2[idx, 0, 0], self.rep_2[idx, 1, 0],\
                   self.rep_2[idx, 0, 1], self.rep_2[idx, 1, 1])
 
         for i in range(self.e_int.shape[1]):
             if i == 0:
-                string3 = "$E_{T%i}$: %6.2f" % (i + 1, self.e_int[idx, i])
+                string3 = "$E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
+                string4 = "$W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
             elif (i % 4) == 0:
-                string3 += "\n$E_{T%i}$: %6.2f" % (i + 1, self.e_int[idx, i])
+                string3 += "\n$E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
+                string4 += "\n$W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
             else:
-                string3 += ", $E_{T%i}$: %6.2f" % (i + 1, self.e_int[idx, i])
-
-        hAx.text(1.5, 5, string1 + string2 + string3, ha = "left", va = "center", fontsize = "small",\
-                 bbox=dict(facecolor = (0, 0, 1, 0.1), edgecolor = (0, 0, 1, 0.5), lw = 1))
+                string3 += ", $E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
+                string4 += ", $W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
+        string3 += "\n"
+                
+        hAx.text(1.5, 5, string1 + string2 + string3 + string4, ha = "left", va = "center",\
+                 fontsize = "small", bbox=dict(facecolor = (0, 0, 1, 0.1), edgecolor = (0, 0, 1, 0.5),\
+                 lw = 1))
 
         plt.tight_layout(h_pad = 0.2, w_pad = 2)
         if save:
@@ -1213,26 +1313,26 @@ class Interface():
 
         hAx = plt.subplot(row, col, N)
         
-        atoms = self.atoms
+        atoms = self.atoms[idx]
 
         if eps == "eps_11":
-            strain = np.abs(self.eps_11)
+            strain = np.abs(self.eps_11)[idx]
             x_label = "Strain $abs(\epsilon_{11})$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps == "eps_22":
-            strain = np.abs(self.eps_22)
+            strain = np.abs(self.eps_22)[idx]
             x_label = "Strain $abs(\epsilon_{22})$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps == "eps_12":
-            strain = np.abs(self.eps_12)
+            strain = np.abs(self.eps_12)[idx]
             x_label = "Strain $abs(\epsilon_{12})$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
             x_label = "Strain $\epsilon_{mas}$ (%)"
-            strain = self.eps_mas
+            strain = self.eps_mas[idx]
 
         if verbose > 0:
-            string = "Items total: %i" % (idx.shape[0])
+            string = "Items total: %i" % (np.shape(idx)[0])
             ut.infoPrint(string)
 
         if mark is not None:
@@ -1247,7 +1347,7 @@ class Interface():
             strain = strain[np.logical_not(mask)]
             atoms = atoms[np.logical_not(mask)]
 
-        if const is not None:
+        if const is not None and self.atoms.shape[0] > 2:
 
             """Find atom/strain pairs below limit set by atoms = A * strain ** exp"""
             low = atoms < (const * strain ** exp)
@@ -1301,125 +1401,154 @@ class Interface():
             plt.show()
 
 
-    def plotProperty(x, y, idx = None, col = 1, row = 1, N = 1, save = False,\
-                     dpi = 100, format = "pdf", verbose = 1, handle = False, **kwarg):
-        """Function for plotting properties agains each other"""
+    def plotProperty(self, x, y, z = None, idx = None, col = 1, row = 1, N = 1, 
+                     save = False, dpi = 100, format = "pdf", verbose = 1, handle = False,\
+                     translation = None, **kwarg):
+        """Function for plotting properties agains each other.
+
+        Available properties are
+        ------------------------
+        idx      = Index of current sorting
+        eps_11   = Eps_11
+        eps_22   = Eps_22
+        eps_12   = Eps_12
+        eps_mas  = Eps_mas
+        atoms    = Nr of atoms
+        angle    = Angle between interface cell vectors
+        rotation = Initial rotation at creation
+        norm     = Sqrt(eps_11^2+eps_22^2+eps_12^2)
+        a_1      = Length of interface cell vector a_1
+        a_2      = Length of interface cell vector a_2
+        area     = Area of the interface
+        e_int    = Interfacial energy, for specified translation(s)
+        w_sep    = Work of separation, for specified translation(s)
+        """
+
+        if translation is None: translation = [0]
+        if isinstance(translation, (int, np.integer)): translation = [translation]
         
-        print("Plot properties")
+        if save is True:
+            filename = "%s_%s.%s" % (x, y, format)
 
+        data = {"x": x, "y": y, "z": z}
+        lbl = {"x": "", "y": "", "z": ""}
 
+        for key in data:
+            if data[key] is None: continue
 
+            if data[key].lower() == "idx":
+                data[key] = np.array(idx)
+                lbl[key] = "Index"
 
+            elif data[key].lower() == "eps_11":
+                data[key] = self.eps_11[idx]
+                lbl[key] = "$\epsilon_{11}$"
 
+            elif data[key].lower() == "eps_22":
+                data[key] = self.eps_22[idx]
+                lbl[key] = "$\epsilon_{22}$"
 
+            elif data[key].lower() == "eps_12":
+                data[key] = self.eps_12[idx]
+                lbl[key] = "$\epsilon_{12}$"
 
-    def plotEint(self, idx = None, translation = None, col = 1, row = 1,\
-                 N = 1, save = False, dpi = 100, format = "pdf", verbose = 1,\
-                 x_data = "idx", handle = False, **kwarg):
-        """Function for plotting interacial energies"""
+            elif data[key].lower() == "eps_mas":
+                data[key] = self.eps_mas[idx]
+                lbl[key] = "$\epsilon_{mas}$"
 
-        if idx is None: idx = np.arange(self.e_int.shape[0])
-        if isinstance(idx, (int, np.integer)): idx = np.array([idx])
-        if translation is None: translation = np.arange(self.e_int.shape[1])
-        if isinstance(translation, (int, np.integer)): translation = np.array([translation])
+            elif data[key].lower() == "atoms":
+                data[key] = self.atoms[idx]
+                lbl[key] = "Atoms"
 
-        hFix = plt.figure()
-        hAx = plt.subplot(row, col, N)
+            elif data[key].lower() == "angle":
+                data[key] = self.getBaseAngles(idx = idx, cell = 1, rad = False)
+                lbl[key] = "Cell Angle, (Deg)"
 
-        if x_data.lower() == "idx":
-            for i, t in enumerate(translation):
-                hAx.plot(idx, self.e_int[idx, :][:, t], label = "$T_{%i}$" % t, **kwarg)
-            x_label = "Index"
+            elif data[key].lower() == "norm":
+                data[key] = np.sqrt(self.eps_11[idx]**2 + self.eps_22[idx]**2 + self.eps_12[idx]**2)
+                lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$"
 
-        elif x_data.lower() == "eps_11":
-            for i, t in enumerate(translation):
-                hAx.plot(self.eps_11[idx], self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "$\epsilon_{11}$"
+            elif data[key].lower() == "rotation":
+                data[key] = self.ang[idx]
+                lbl[key] = "Initial rotaion of top cell, (Deg)"
 
-        elif x_data.lower() == "eps_22":
-            for i, t in enumerate(translation):
-                hAx.plot(self.eps_22[idx], self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "$\epsilon_{22}$"
+            elif data[key].lower() == "a_1":
+                data[key] = self.getCellLengths(idx = idx, cell = 1)
+                lbl[key] = "Length $a_1$, ($\AA^2$)"
 
-        elif x_data.lower() == "eps_12":
-            for i, t in enumerate(translation):
-                hAx.plot(self.eps_12[idx], self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "$\epsilon_{12}$"
+            elif data[key].lower() == "a_2":
+                data[key] = self.getCellLengths(idx = idx, cell = 1)
+                lbl[key] = "Length $a_2$, ($\AA^2$)"
 
-        elif x_data.lower() == "eps_mas":
-            for i, t in enumerate(translation):
-                hAx.plot(self.eps_mas[idx], self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "$\epsilon_{mas}$"
+            elif data[key].lower() == "area":
+                data[key] = self.getAreas(idx = idx, cell = 1)
+                lbl[key] = "Area, ($\AA2$)"
 
-        elif x_data.lower() == "atoms":
-            for i, t in enumerate(translation):
-                hAx.plot(self.atoms[idx], self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "Atoms"
+            elif data[key].lower() == "e_int":
+                if len(translation) > self.e_int.shape[1]:
+                    string = "Translation (%i) outside e_int range (0,%i)"\
+                             % (np.max(translation), self.e_int.shape[1])
+                    ut.infoPrint(string)
+                    return
 
-        elif x_data.lower() == "angle":
-            angles = self.getBaseAngles(idx = idx, cell = 1, rad = False)
-            for i, t in enumerate(translation):
-                hAx.plot(angles, self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "Cell Angle, (Deg)"
-            hAx.set_xticks(np.arange(0, 180, 15))
+                data[key] = self.e_int[idx, :][:, translation]
+                lbl[key] = "Interfacial Energy, ($eV/\AA2$)"
 
-        elif x_data.lower() == "norm":
-            norm = np.sqrt(self.eps_11[idx]**2 + self.eps_22[idx]**2 + self.eps_12[idx]**2)
-            for i, t in enumerate(translation):
-                hAx.plot(norm, self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$"
+            elif data[key].lower() == "w_sep":
+                if len(translation) > self.w_sep.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = self.w_sep[idx, :][:, translation]
+                lbl[key] = "Work of Separation, ($eV/\AA^2$)"
 
-        elif x_data.lower() == "rotation":
-            for i, t in enumerate(translation):
-                hAx.plot(self.ang[idx], self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "Initial rotaion of top cell, (Deg)"
+            else:
+                plt.close()
+                string = "Unrecognized x_data argument: %s" % x_data
+                ut.infoPrint(string)
+                return
 
-        elif x_data.lower() == "length_1":
-            norms = self.getCellLengths(idx = idx, cell = 1)
-            for i, t in enumerate(translation):
-                hAx.plot(norms[:, 0], self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "Length $a_1$, ($\AA^2$)"
+        hFig = plt.figure()
 
-        elif x_data.lower() == "length_2":
-            norms = self.getCellLengths(idx = idx, cell = 1)
-            for i, t in enumerate(translation):
-                hAx.plot(norms[:, 1], self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "Length $a_2$, ($\AA^2$)"
-
-        elif x_data.lower() == "area":
-            area = self.getAreas(idx = idx, cell = 1)
-            for i, t in enumerate(translation):
-                hAx.plot(area, self.e_int[idx, :][:, t],\
-                         label = "$T_{%i}$" % t, **kwarg)
-            x_label = "Area, ($\AA2$)"
-
+        if data["z"] is None:
+            hAx = plt.subplot(row, col, N)
+            hAx.plot(data["x"], data["y"], **kwarg)
+            hAx.set_xlabel(lbl["x"])
+            hAx.set_ylabel(lbl["y"])
         else:
-            plt.close()
-            string = "Unrecognized x_data argument: %s" % x_data
-            ut.infoPrint(string)
-            return
+            hAx = plt.subplot(row, col, N, projection = "3d")
 
-        hAx.set_xlabel(x_label)
-        hAx.set_ylabel("Energy, (eV/$\AA^2$)")
-        hAx.set_title("Work of Adhesion")
-        hAx.legend(framealpha = 1)
+            if np.ndim(data["x"]) == 1: data["x"] = data["x"][:, None]
+            if np.ndim(data["y"]) == 1: data["y"] = data["y"][:, None]
+            if np.ndim(data["z"]) == 1: data["z"] = data["z"][:, None]
+
+            j,k,l = (0, 0, 0)
+            for i, t in enumerate(translation):
+                hAx.scatter(data["x"][:, j], data["y"][:, k], data["z"][:, l], **kwarg)
+
+                if np.shape(data["x"])[1] > 1: j += 1
+                if np.shape(data["y"])[1] > 1: k += 1
+                if np.shape(data["z"])[1] > 1: l += 1
+                    
+            hAx.set_xlabel(lbl["x"])
+            hAx.set_ylabel(lbl["y"])
+            hAx.set_ylabel(lbl["z"])
 
         if handle: return
-        
+
+        if len(translation) > 1:
+            lgd = []
+            for i in translation:
+                lgd.append("$T_{%i}$" % i)
+                plt.legend(lgd, framealpha = 1)
+
         plt.tight_layout()
+
         if save:
             if save is True:
-                ut.save_fig(filename = "E_int.%s" % format, format = format,\
+                ut.save_fig(filename = filename, format = format,\
                          dpi = dpi, verbose = verbose)
             else:
                 ut.save_fig(filename = save, format = format, dpi = dpi,\
@@ -1427,6 +1556,7 @@ class Interface():
             plt.close()
         else:
             plt.show()
+
 
 
     def saveInterfaces(self, filename = "Interfaces.pkl", verbose = 1):
@@ -1483,12 +1613,13 @@ class Interface():
                     "Rep 2 bx": np.round(self.rep_2[idx, 0, 1], prec),\
                     "Rep 2 by": np.round(self.rep_2[idx, 1, 1], prec)}
 
-        if len(self.e_int.shape) == 1:
-            self.e_int = self.e_int[:, None]
-
         for i in range(self.e_int.shape[1]):
             key = "E_int_T%i" % (i)
             dataDict[key] = np.round(self.e_int[idx, i], prec)
+
+        for i in range(self.w_sep.shape[1]):
+            key = "W_sep_T%i" % (i)
+            dataDict[key] = np.round(self.w_sep[idx, i], prec)
 
         data = pd.DataFrame(dataDict)
         data.to_excel(filename)

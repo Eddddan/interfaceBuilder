@@ -28,16 +28,16 @@ class Structure():
                  format = None):        
 
         if load_from_file is not None:
-            cell, pos, type_n, idx = file_io.readData(load_from_file, format)
+            cell, pos, type, idx, mass = file_io.readData(load_from_file, format)
+            if isinstance(type[0], (np.integer, int)):
+                type_i = type
+            else:
+                type_n = type
 
             if np.all(pos >= 0) and np.all(pos <= 1):
                 pos_type = "d"
             else:
                 pos_type = "c"
-
-            type_i = np.zeros(type_n.shape[0])
-            for i, item in enumerate(np.unique(type_n)):
-                type_i[type_n == item] = i + 1
 
             if filename is None: filename = load_from_file
      
@@ -54,15 +54,15 @@ class Structure():
                 type_i[type_n == item] = i + 1
 
         """Simply placeholders for element names"""
-        elements = [ "H", "He", "Li", "Be",  "B",  "C",  "N",  "O",  "F",\
-                    "Ne", "Na", "Mg", "Al", "Si",  "P",  "S", "Cl", "Ar"]
+        elements = [ "A", "B", "C", "D", "E", "F", "G", "H", "I",\
+                     "J", "K", "L", "M", "N", "O", "P", "Q", "R"]
         if type_n is None:
             if type_i is None:
                 type_i = np.ones(pos.shape[0])
-                type_n = np.chararray(pos.shape[1], itemsize = 2)
+                type_n = np.chararray(pos.shape[0], itemsize = 2)
                 type_n[:] = "H"
             else:
-                type_n = np.chararray(pos.shape[1], itemsize = 2)
+                type_n = np.chararray(pos.shape[0], itemsize = 2)
                 for i, item in enumerate(np.unique(type_i)):
                     type_n[type_i == item] = elements[i]
         else:
