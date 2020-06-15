@@ -9,15 +9,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-"""Set some plotting defaults"""
-plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium",\
-              "axes.labelsize": "small", "axes.labelweight": "normal",\
-              "axes.titleweight": "semibold", "legend.fontsize": "small",\
-              "xtick.labelsize": "small", "ytick.labelsize": "small",\
-              "figure.titlesize": "medium", "figure.titleweight": "semibold",\
-              "lines.linewidth": 1, "lines.marker": "None", "lines.markersize": 2,\
-              "lines.markerfacecolor": "None"}
-plt.rcParams.update(**plotParams)
 
 class Interface():
     """
@@ -1658,11 +1649,12 @@ class Interface():
 
         """Working on interface A"""
         """Set up the bottom interface with the correct repetitions"""
-        rep_1 = np.zeros((3, 3))
+        rep_1 = np.zeros((3, 4))
         rep_1[0:2, 0:2] = self.rep_1[idx, :, :]
+        rep_1[:, 2] = np.sum(rep_1, axis = 1)
 
         """Set all hi-lo limits for the cell repetitions"""
-        h = 10
+        h = 2
         rep_1 = [rep_1[0, :].min() - h, rep_1[0, :].max() + h,\
                  rep_1[1, :].min() - h, rep_1[1, :].max() + h,\
                  0, z_1 - 1]
@@ -1674,11 +1666,12 @@ class Interface():
 
         """Working on interface B"""    
         """Set up the top interface with the correct repetitions and rotation"""
-        rep_2 = np.zeros((3, 3))
+        rep_2 = np.zeros((3, 4))
         rep_2[0:2, 0:2] = self.rep_2[idx, :, :]
+        rep_2[:, 2] = np.sum(rep_2, axis = 1)
 
         """Set all hi-lo limits for the cell repetitions"""
-        h = 10
+        h = 2
         rep_2 = [rep_2[0, :].min() - h, rep_2[0, :].max() + h,\
                  rep_2[1, :].min() - h, rep_2[1, :].max() + h,\
                  0, z_2 - 1]
@@ -1867,7 +1860,7 @@ class Interface():
 
 
     def exportSurface(self, idx = 0, z = 1, verbose = 1, format = "lammps",\
-                        filename = None, vacuum = 0, surface = 1):
+                      filename = None, vacuum = 0, surface = 1):
         """Function for writing an interface to a specific file format"""
 
         if filename is None:
