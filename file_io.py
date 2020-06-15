@@ -213,6 +213,9 @@ def writeLAMMPS(filename, atoms, verbose = 1):
         string = "Writing file: %s, format: LAMMPS" % filename
         ut.infoPrint(string)
 
+    """Make sure positions are in cartesian coordinates"""
+    atoms.dir2car()
+
     with open(filename, "w") as f:
         
         """Newline character"""
@@ -226,17 +229,17 @@ def writeLAMMPS(filename, atoms, verbose = 1):
             masses[i] = atoms.mass[atoms.type_i == item][0]
 
         """First a comment line"""
-        f.write("LAMMPS-data file written from file_io.py\n")
+        f.write("LAMMPS-data file (%s) written from file_io.py\n" % filename)
         f.write(nl)
 
         f.write("%i atoms\n" % nr_atoms)
         f.write("%i atom types\n" % nr_types)
         f.write(nl)
 
-        f.write("%13.7f %13.7f   xlo xhi\n" % (box[0], box[1]))
-        f.write("%13.7f %13.7f   ylo yhi\n" % (box[2], box[3]))
-        f.write("%13.7f %13.7f   zlo zhi\n" % (box[4], box[5]))
-        f.write("%13.7f %13.7f %13.7f   xy xz yz\n"\
+        f.write("%12.6f %12.6f   xlo xhi\n" % (box[0], box[1]))
+        f.write("%12.6f %12.6f   ylo yhi\n" % (box[2], box[3]))
+        f.write("%12.6f %12.6f   zlo zhi\n" % (box[4], box[5]))
+        f.write("%12.6f %12.6f %12.6f   xy xz yz\n"\
                 % (atoms.cell[0, 1], atoms.cell[0, 2], atoms.cell[1, 2]))
         f.write(nl)
 
@@ -249,7 +252,7 @@ def writeLAMMPS(filename, atoms, verbose = 1):
         f.write("Atoms\n")
         f.write(nl)
         for i in range(nr_atoms):
-            f.write("%5i %3i %13.7f %13.7f %13.7f\n"\
+            f.write("%5i %3i %12.6f %12.6f %12.6f\n"\
                     % (atoms.idx[i] + 1, atoms.type_i[i], atoms.pos[i, 0],\
                        atoms.pos[i, 1], atoms.pos[i, 2]))
 
@@ -260,12 +263,60 @@ def readVASP(filename):
 
 
 
-def writeVASP(filename, atoms):
+def writeVASP(filename, atoms, direct = False, verbose = 1):
     """Write VASP POSCAR file"""
 
-    print("Write VASP")
+    if verbose > 0:
+        string = "Writing file: %s, format: VASP" % filename
+        ut.infoPrint(string)
 
+    elements = []
+    nr_elements = []
+    for i in np.unique(atoms.type_i):
+        elements.append(atoms.type_n[atoms.type_i == i][0].decode("utf-8"))
+        nr_elements.append(np.shape(atoms.type_n[atoms.type_i == i])[0])
 
+    if direct:
+        atoms.car2dir()
+        pos = atoms.pos
+        coordinates = "Direct"
+    else:
+        atoms.dir2car()
+        pos = atoms.pos
+        coordinates = "Cartesian"
+
+    frozen = np.chararray(atoms.pos.shape, itemsize = 1)
+    frozen[:] = "F"
+    frozen[atoms.frozen] = "T"
+
+    with open(filename, "w") as f:
+        
+        """Newline character"""
+        nl = "\n"
+
+        scale = 1.0
+
+        f.write("VASP POSCAR-file (%s) written from file_io.py\n" % filename)
+        f.write("%s\n" % scale)
+
+        """The cell is [a.T, b.T, c.T] i.e. row = cellvector, opposite of lammps""" 
+        for row in atoms.cell.T:
+            f.write("  %11.6f  %11.6f  %11.6f\n" % (row[0], row[1], row[2]))
+
+        for e in elements:
+            f.write("  %3s" % e)
+        f.write("\n")
+
+        for nr in nr_elements:
+            f.write("  %3i" % nr)
+        f.write("\n")
+
+        f.write("Selective Dynamics\n")
+        f.write("%s\n" % coordinates)
+        for i, p in enumerate(pos):
+            f.write("  %11.6f  %11.6f  %11.6f  %s  %s  %s\n"\
+                        % (p[0], p[1], p[2], frozen[i, 0].decode("utf-8"),\
+                           frozen[i, 0].decode("utf-8"), frozen[i, 0].decode("utf-8")))
 
 
 def readXYZ(filename):
@@ -328,20 +379,20 @@ def readData(filename, format = "eon"):
         sys.exit()
 
 
-def writeData(filename, atoms, format = "eon"):
+def writeData(filename, atoms, format = "eon", verbose = 1):
     """Entry point for loading geometry files"""
 
     if "eon".startswith(format.lower()):
-        writeEON(filename, atoms)
+        writeEON(filename, atoms, verbose = verbose)
 
     elif "lammps".startswith(format.lower()):
-        writeLAMMPS(filename, atoms)
+        writeLAMMPS(filename, atoms, verbose = verbose)
 
     elif "vasp".startswith(format.lower()):
-        writeVASP(filename, atoms)
+        writeVASP(filename, atoms, verbose = verbose)
 
     elif "xyz".startswith(format.lower()):
-        writeXYZ(filename, atoms)
+        writeXYZ(filename, atoms, verbose = verbose)
 
     else:
         print("Unrecognized file format")
