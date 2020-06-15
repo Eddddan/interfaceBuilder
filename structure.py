@@ -1,7 +1,20 @@
 
 import inputs
 import file_io
+import utils as ut
 import numpy as np
+import matplotlib.pyplot as plt
+
+
+"""Set some plotting defaults"""
+plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium",\
+              "axes.labelsize": "small", "axes.labelweight": "normal",\
+              "axes.titleweight": "semibold", "legend.fontsize": "small",\
+              "xtick.labelsize": "small", "ytick.labelsize": "small",\
+              "figure.titlesize": "medium", "figure.titleweight": "semibold",\
+              "lines.linewidth": 1, "lines.marker": "None", "lines.markersize": 2,\
+              "lines.markerfacecolor": "None"}
+plt.rcParams.update(**plotParams)
 
 
 class Structure():
@@ -107,10 +120,8 @@ class Structure():
             self.mass = type_i
 
 
-    def writeStructure(self, filename = None, format = None):
+    def writeStructure(self, filename = None, format = "lammps"):
         """Function for writing the structure to a file"""
-
-        if format is None: format = "lammps"
 
         if filename is not None:
             file_io.writeData(filename = filename, atoms = self, format = format)
@@ -187,6 +198,136 @@ class Structure():
         self.pos = np.matmul(R, self.pos.T).T
 
 
+    def getBoxLengths(self):
+        """Function for getting the box side lengths in orthogonal x,y,z"""
+
+        return self.cell[np.identity(3, dtype = bool)]
+
+
+    def getNeighborDistance(self, idx = None, r = 6, idx_to = None,\
+                            extend = np.array([1, 1, 1], dtype = bool),\
+                            verbose = 1):
+        """Function for getting the distance between specified atoms within
+           radius r"""
+
+        """Check some defaults"""
+        if idx is None: idx = np.arange(self.pos.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = np.array([idx])
+        if idx_to is None: idx_to = np.arange(self.pos.shape[0])
+        if isinstance(idx_to, (int, np.integer)): idx_to = np.array([idx_to])
+        extend = np.array(extend, dtype = bool)
+
+        """Cell extension to comply with the sepecified r value"""
+        box = self.getBoxLengths()
+        rep = np.ceil(r / box) - 1
+        rep = rep.astype(np.int)
+        rep[np.logical_not(extend)] = 0
+
+        """If the box < r then extend the box. Otherwise wrap the cell"""
+        if np.any(box < r):
+
+            if verbose > 0:
+                string = "Replicating cell by %i,%i,%i (x,y,z)"\
+                         % (rep[0] + 1, rep[1] + 1, rep[2] + 1)
+                ut.infoPrint(string)
+
+            pos_to, cell = self.getExtendedPositions(x = rep[0], y = rep[1], z = rep[2],\
+                                                  idx = idx_to, return_cart = True,\
+                                                  verbose = verbose - 1)
+
+            """Change to cartesian coordinates"""
+            self.dir2car()
+
+            """Change back to direct coordinates using the new extended cell"""
+            pos_to = np.matmul(np.linalg.inv(cell), pos_to.T).T
+            pos_from = np.matmul(np.linalg.inv(cell), self.pos) 
+        else:
+            if verbose > 0:
+                string = "Cell is only wrapped, not extended"
+                ut.infoPrint(string)
+
+            """Change to direct coordinates"""
+            self.car2dir()
+            pos_to = self.pos.copy()[idx_to, :]
+            pos_from = self.pos.copy()
+            cell = self.cell
+
+        ps = pos_to.shape[0]
+        dist = np.zeros((np.shape(idx)[0] * ps, 3))
+        #index = np.zeros((np.shape(idx), ps))
+
+        for i, item in enumerate(idx):
+            d = pos_to - pos_from[item, :]
+        
+            d[d >  0.5] -= 1
+            d[d < -0.5] += 1
+
+            dist[i * ps : (i + 1) * ps, :] = d
+
+        """Convert to cartesian coordinates"""
+        dist = np.matmul(cell, dist.T).T
+
+        """Calculate the distances"""
+        dist = np.linalg.norm(dist, axis = 1)
+
+        """Remove distances outside of radius r"""
+        dist = dist[dist < r]
+
+        """Remove the 0 distances, (atom to it self)"""
+        dist = dist[dist > 0]
+
+        return dist
+
+
+
+    def getRDF(self, idx = None, idx_to = None, r = 6, dr = 0.1, bins = None,\
+               extend = np.array([1, 1, 1], dtype = bool), edges = False,\
+               verbose = 1):
+        """Function for getting the radial distribution function around and 
+        to specified atoms"""
+
+        """Check some defaults"""
+        if idx is None: idx = np.arange(self.pos.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = np.array([idx])
+        if idx_to is None: idx_to = np.arange(self.pos.shape[0])
+        if isinstance(idx_to, (int, np.integer)): idx_to = np.array([idx_to])
+        extend = np.array(extend, dtype = bool)
+
+        dist = self.getNeighborDistance(idx = idx, idx_to = idx_to, r = r,\
+                                        extend = extend, verbose = verbose)
+
+        """If bins is specified it is used over dr"""
+        if bins is None:
+            bins = np.arange(0, r + dr, dr)
+
+        cnt, bin = np.histogram(dist, bins = bins, range = (0, r))
+
+        """Get volume of the radial spheres, V=4/3*pi*(bin[1]^3 - bin[0]^3) """
+        V = 4/3*np.pi * (bin[1:]**3 - bin[:-1]**3)
+
+        """Calculate the cumulative distribution without normalizing by V"""
+        N = np.shape(idx)
+        tot = np.cumsum(cnt / N)
+
+        """Normalize the RD count by V and nr of atoms which the RDF is centered around"""
+        cnt = cnt / (N * V)
+
+        if not edges:
+            bin = bin[:-1] + bin[1] / 2
+
+        return cnt, bin, tot
+
+
+
+    def plotRDF(idx = None, idx_to = None, r = 6, dr = 0.1, bins = None, edges = False,\
+                extend = np.array([1, 1, 1], dtype = bool), verbose = 1):
+        """Function for ploting the RDF and cumulative distribution"""
+
+        print("Plot RDF")
+
+    
+
+
     def extendStructure(self, x = 1, y = 1, z = 1, reset_index = False, verbose = 1):
         """Function for repeating the cell in x, y or z direction"""
 
@@ -242,6 +383,45 @@ class Structure():
 
 
 
+    def getExtendedPositions(self, x = 0, y = 0, z = 0, idx = None,\
+                           return_cart = True, verbose = 1):
+        """Function for retreving an extended set of positions"""
+
+        if idx is None: idx = np.arange(self.pos.shape[0])
+        if isinstance(idx, (np.integer, int)): idx = np.arange([idx])
+
+        """Change to direct coordinates"""
+        self.car2dir()
+
+        l = np.shape(idx)[0]
+
+        xR = np.arange(0, x + 1, dtype = np.int)
+        yR = np.arange(0, y + 1, dtype = np.int)
+        zR = np.arange(0, z + 1, dtype = np.int)
+        
+        pos = self.pos.copy()[idx, :].T
+        pos = np.tile(pos, (x + 1) * (y + 1) * (z + 1))
+
+        n = 0
+        for i in zR:
+            for j in yR:
+                for k in xR:
+                    pos[:, l * n : l * (n + 1)] += np.array([k, j, i])[:, None]
+                    n += 1
+        
+        cell = self.cell.copy()
+        cell[:, 0] *= xR.shape[0]
+        cell[:, 1] *= yR.shape[0]
+        cell[:, 2] *= zR.shape[0]
+
+        if return_cart:
+            pos = np.matmul(self.cell, pos)
+            return pos.T, cell
+        else:
+            return pos.T, cell
+
+
+
     def car2dir(self):
         """Change positions from cartesian to direct coordinates"""
 
@@ -275,10 +455,8 @@ class Structure():
                 filename = self.filename
 
         """Write the structure object to specified file"""
-        file_io.writeData(filename = filename, atoms = self, format = format)
+        file_io.writeData(filename = filename, atoms = self, format = format, verbose = verbose - 1)
         
         if verbose > 0:
             string = "Structure written to file: %s (%s-format)" % (filename, format)
-            print("=" * len(string))
-            print(string)
-            print("=" * len(string))
+            ut.infoPrint(string)
