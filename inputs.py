@@ -21,10 +21,8 @@ def getInputs(lattice):
         mass = np.array([183.84, 12.0107])
 
 
-
     elif lattice == "WC10-10":
         print("Do WC10-10")
-
 
 
     elif lattice == "W100_L":
@@ -41,7 +39,6 @@ def getInputs(lattice):
         spec[:] = 'W'
 
         mass = np.array([183.84, 183.84])
-
 
         
     elif lattice == "W110_L":
@@ -61,11 +58,9 @@ def getInputs(lattice):
 
         mass = np.array([183.84, 183.84, 183.84, 183.84])
 
-
         
     elif lattice == "W111":
         print("Do W111")
-
 
 
     return cell, pos, spec, mass

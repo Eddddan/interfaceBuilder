@@ -254,7 +254,6 @@ class Structure():
 
         ps = pos_to.shape[0]
         dist = np.zeros((np.shape(idx)[0] * ps, 3))
-        #index = np.zeros((np.shape(idx), ps))
 
         for i, item in enumerate(idx):
             d = pos_to - pos_from[item, :]

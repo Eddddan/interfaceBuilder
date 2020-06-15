@@ -291,9 +291,6 @@ def writeVASP(filename, atoms, direct = False, verbose = 1):
 
     with open(filename, "w") as f:
         
-        """Newline character"""
-        nl = "\n"
-
         scale = 1.0
 
         f.write("VASP POSCAR-file (%s) written from file_io.py\n" % filename)

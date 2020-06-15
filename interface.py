@@ -1791,7 +1791,7 @@ class Interface():
             ut.infoPrint(string)
 
         """Basis for the selected surface, and the cell repetitions"""
-        rep = np.zeros((3, 3))
+        rep = np.zeros((3, 4))
         new_base = np.zeros((3, 3))
         if surface == 1:
             old_base = self.base_1
@@ -1803,6 +1803,7 @@ class Interface():
             new_base[0:2, 0:2] = self.cell_1[idx, :, :]
             
             rep[0:2, 0:2] = self.rep_1[idx, :, :]
+            rep[:, 2] = np.sum(rep, axis = 1)
         elif surface == 2:
             old_base = self.base_2
             spec = self.spec_2
@@ -1813,9 +1814,10 @@ class Interface():
             new_base[0:2, 0:2] = self.cell_2[idx, :, :]
 
             rep[0:2, 0:2] = self.rep_2[idx, :, :]
+            rep[:, 2] = np.sum(rep, axis = 1)
 
         """Set all hi-lo limits for the cell repetitions"""
-        h = 10
+        h = 2
         rep = [rep[0, :].min() - h, rep[0, :].max() + h,\
                rep[1, :].min() - h, rep[1, :].max() + h,\
                0, z - 1]
