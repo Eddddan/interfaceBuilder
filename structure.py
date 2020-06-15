@@ -227,7 +227,7 @@ class Structure():
         if np.any(box < r):
 
             if verbose > 0:
-                string = "Replicating cell by %i,%i,%i (x,y,z)"\
+                string = "Replicating cell by %i, %i, %i (x, y, z)"\
                          % (rep[0] + 1, rep[1] + 1, rep[2] + 1)
                 ut.infoPrint(string)
 
@@ -240,7 +240,7 @@ class Structure():
 
             """Change back to direct coordinates using the new extended cell"""
             pos_to = np.matmul(np.linalg.inv(cell), pos_to.T).T
-            pos_from = np.matmul(np.linalg.inv(cell), self.pos) 
+            pos_from = np.matmul(np.linalg.inv(cell), self.pos.T).T 
         else:
             if verbose > 0:
                 string = "Cell is only wrapped, not extended"
