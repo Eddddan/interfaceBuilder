@@ -369,6 +369,23 @@ def getTranslation(translation, surface, verbose = 1):
         elif translation > 3:
             site = "Translation out of range"
             T = np.array([0, 0, 0])
+
+    elif surface.lower() == "10-10":
+        if translation == 0:
+            site = "Top"
+            T = np.array([0, 0, 0])
+
+        elif translation == 1:
+            site = "Hollow"
+            T = np.array([0.5, 0.5, 0])
+
+        elif translation == 2:
+            site = "Bridge-On"
+            T = np.array([0, 0.5, 0])
+
+        elif translation == 3:
+            site = "Bridge-Off"
+            T = np.array([0.5, 0, 0])
             
     if verbose > 0:
         string = "Surface: %s | Translation made to site: %s"\

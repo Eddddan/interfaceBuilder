@@ -21,8 +21,25 @@ def getInputs(lattice):
         mass = np.array([183.84, 12.0107])
 
 
-    elif lattice == "WC10-10":
-        print("Do WC10-10")
+    elif lattice == "WC10-10_T_L":
+        """HCP WC Lattice with 10-10 (T) surface relaxed using LAMMPS"""
+        """Updated 2020-06-18"""
+        cell = np.array([[2.91658918,           0, 0         ],\
+                         [         0,  2.81210207, 0         ],\
+                         [         0,           0, 5.05168065]])
+
+        pos = np.array([[1.45829459,          0, 1.68389355],\
+                        [1.45829459, 1.40605103,          0],\
+                        [         0,          0, 4.20973388],\
+                        [         0, 1.40605103, 2.52584033]])
+
+        spec = np.chararray(shape = 4, itemsize = 2)
+        spec[0] = 'C'
+        spec[1] = 'W'
+        spec[2] = 'C'
+        spec[3] = 'W'
+
+        mass = np.array([12.0107, 183.84, 12.0107, 183.84])
 
 
     elif lattice == "W100_L":
@@ -43,21 +60,18 @@ def getInputs(lattice):
         
     elif lattice == "W110_L":
         """BCC W Lattice with 110 surface relaxed using LAMMPS"""
-        """Updated 2020-06-12"""
-        cell = np.array([[3.164917,        0, 0       ],\
-                         [       0, 4.475869, 0       ],\
+        """Updated 2020-06-18"""
+        cell = np.array([[3.164917, 1.582459, 0       ],\
+                         [       0, 2.237935, 0       ],\
                          [       0,        0, 4.475869]])
         
-        pos = np.array([[0       , 2.237935, 0       ],\
-                        [1.582459, 0,        0       ],\
-                        [0       , 0,        2.237935],\
-                        [1.582459, 2.237935, 2.237935]])
+        pos = np.array([[0       , 0,  0       ],\
+                        [1.582459, 0,  2.237935]])
         
-        spec = np.chararray(shape = 4, itemsize = 2)
+        spec = np.chararray(shape = 2, itemsize = 2)
         spec[:] = 'W'
 
-        mass = np.array([183.84, 183.84, 183.84, 183.84])
-
+        mass = np.array([183.84, 183.84])
         
     elif lattice == "W111":
         print("Do W111")

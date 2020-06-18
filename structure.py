@@ -13,7 +13,7 @@ plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium
               "xtick.labelsize": "small", "ytick.labelsize": "small",\
               "figure.titlesize": "medium", "figure.titleweight": "semibold",\
               "lines.linewidth": 1, "lines.marker": "None", "lines.markersize": 2,\
-              "lines.markerfacecolor": "None"}
+              "lines.markerfacecolor": "None", "legend.framealpha": 1}
 plt.rcParams.update(**plotParams)
 
 
@@ -120,6 +120,7 @@ class Structure():
             self.mass = type_i
 
 
+
     def writeStructure(self, filename = None, format = "lammps"):
         """Function for writing the structure to a file"""
 
@@ -127,6 +128,7 @@ class Structure():
             file_io.writeData(filename = filename, atoms = self, format = format)
         else:
             file_io.writeData(filename = self.filename, atoms = self, format = format)
+
 
 
     def printStructure(self):
@@ -198,10 +200,12 @@ class Structure():
         self.pos = np.matmul(R, self.pos.T).T
 
 
+
     def getBoxLengths(self):
         """Function for getting the box side lengths in orthogonal x,y,z"""
 
         return self.cell[np.identity(3, dtype = bool)]
+
 
 
     def getNeighborDistance(self, idx = None, r = 6, idx_to = None,\
@@ -216,6 +220,21 @@ class Structure():
         if idx_to is None: idx_to = np.arange(self.pos.shape[0])
         if isinstance(idx_to, (int, np.integer)): idx_to = np.array([idx_to])
         extend = np.array(extend, dtype = bool)
+        
+        """Change to cartesian coordinates"""
+        self.dir2car()
+
+        """Check the rough maximum possible extent for relevant atoms"""
+        max_pos = np.max(self.pos[idx, :], axis = 0) + r
+        min_pos = np.min(self.pos[idx, :], axis = 0) - r
+        lim = np.all(self.pos < max_pos, axis = 1) *\
+              np.all(self.pos > min_pos, axis = 1)
+        idx_to = np.intersect1d(self.idx[lim], idx_to)
+        if verbose > 0:
+            string = "Considering idx_to within [%.2f, %.2f] (x), [%.2f, "\
+                     " %.2f] (y), [%.2f,  %.2f] (z)" % (min_pos[0], max_pos[0],\
+                     min_pos[1], max_pos[1], min_pos[2], max_pos[2])
+            ut.infoPrint(string)
 
         """Cell extension to comply with the sepecified r value"""
         box = self.getBoxLengths()
@@ -242,12 +261,13 @@ class Structure():
             pos_to = np.matmul(np.linalg.inv(cell), pos_to.T).T
             pos_from = np.matmul(np.linalg.inv(cell), self.pos.T).T 
         else:
+            """Change to direct coordinates"""
+            self.car2dir()
+
             if verbose > 0:
                 string = "Cell is only wrapped, not extended"
                 ut.infoPrint(string)
 
-            """Change to direct coordinates"""
-            self.car2dir()
             pos_to = self.pos.copy()[idx_to, :]
             pos_from = self.pos.copy()
             cell = self.cell
@@ -276,6 +296,12 @@ class Structure():
         dist = dist[dist > 0]
 
         return dist
+
+
+    def getNearestNeighbors(self, idx, idx_to = None, N = 8):
+        """Function for getting index to nearest neighbors of specified atoms"""
+
+        
 
 
 
@@ -318,13 +344,112 @@ class Structure():
 
 
 
-    def plotRDF(idx = None, idx_to = None, r = 6, dr = 0.1, bins = None, edges = False,\
-                extend = np.array([1, 1, 1], dtype = bool), verbose = 1):
+    def plotRDF(self, idx = None, idx_to = None, r = 6, dr = 0.1, bins = None,\
+                extend = np.array([1, 1, 1], dtype = bool), cumulative = False, legend = None,\
+                row = 1, col = 1, N = 1, handle = False, save = False, format = "pdf",\
+                dpi = 100, verbose = 1, **kwarg):
         """Function for ploting the RDF and cumulative distribution"""
+        
+        lbl_1 = None
+        if idx is None:
+            idx = [np.arange(self.pos.shape[0])]
+        elif isinstance(idx, (int, np.integer)):
+            idx = [np.array([idx])]
+        elif isinstance(idx[0], (int, np.integer)):
+            idx = [idx]
+        elif isinstance(idx, str) and idx.lower() == "species":
+            idx, lbl_1 = self.getElementIdx()
 
-        print("Plot RDF")
+        lbl_2 = None
+        if idx_to is None:
+            idx_to = [np.arange(self.pos.shape[0])]
+        elif isinstance(idx_to, (int, np.integer)):
+            idx_to = [np.array([idx_to])]
+        elif isinstance(idx_to[0], (int, np.integer)):
+            idx_to = [idx_to]
+        elif isinstance(idx_to, str) and idx_to.lower() == "species":
+            idx_to, lbl_2 = self.getElementIdx()
+            
 
-    
+        if len(idx) == 1:
+            l_idx = np.zeros(len(idx_to), dtype = np.int)
+        else:
+            l_idx = np.arange(len(idx), dtype = np.int)
+            
+        if len(idx_to) == 1:
+            l_idx_to = np.zeros(len(idx), dtype = np.int)
+        else:
+            l_idx_to = np.arange(len(idx_to), dtype = np.int)
+
+        if l_idx.shape[0] != l_idx_to.shape[0]:
+            string = "Length of idx and idx_to does not match (%i, %i). "\
+                     "Can be (1,N), (N,1) or (N,N)"\
+                     % (l_idx.shape[0], l_idx_to.shape[0])
+            ut.infoPrint(string)
+            return
+            
+        y = []; yt = []
+        for i in range(l_idx.shape[0]):
+            cnt, bin, tot = self.getRDF(idx = idx[l_idx[i]], idx_to = idx_to[l_idx_to[i]], r = r,\
+                                        dr = 0.1, bins = bins, extend = extend,\
+                                        edges = False, verbose = verbose)
+            
+            y.append(cnt)
+            yt.append(tot)
+
+        if not handle:
+            hFig = plt.figure()
+
+        hAx = plt.subplot(row, col, N)
+        if cumulative:
+            hAxR = hAx.twinx()
+        label = "_ignore"
+        for i, item in enumerate(y):
+            if legend is not None:
+                if legend.lower() == "idx":
+                    label = "%i -> %i" % (l_idx[i], l_idx_to[i])
+                else:
+                    label = legend[i]
+            elif lbl_1 is not None and lbl_2 is not None:
+                label = "%2s -> %2s" % (lbl_1[i], lbl_2[i])
+            elif lbl_1 is not None:
+                label = "%2s -> %i" % (lbl_1[i], l_idx_to[i])
+            elif lbl_2 is not None:
+                label = "%i -> %2s" % (l_idx[i], lbl_2[i])
+
+            hL = hAx.plot(bin, item, linestyle = "-", label = label, **kwarg)
+            if cumulative:
+                hAxR.plot(bin, yt[i], linestyle = "--", color = hL[-1].get_color(), **kwarg)
+
+        hAx.set_xlabel("Radius, $\AA$")
+        hAx.set_ylabel("Atoms / (Atom * Volume), ($1/\AA^3$)")
+        if label != "_ignore":
+            hAx.legend(framealpha = 1, loc = "upper left")
+
+        hAx.set_title("RDF")
+        plt.tight_layout()
+        if save:
+            if save is True:
+                ut.save_fig(filename = "RDF.%s" % (idx, format), format = format,\
+                         dpi = dpi, verbose = verbose)
+            else:
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
+                         verbose = verbose)
+            plt.close()
+        else:
+            plt.show()
+
+
+    def getElementIdx(self):
+        """Function for getting the atomic indices for each element"""
+
+        idx = []; element = []
+        for i in np.unique(self.type_n):
+            idx.append(self.idx[self.type_n == i])
+            element.append(i.decode("utf-8"))
+
+        return idx, element
+
 
 
     def extendStructure(self, x = 1, y = 1, z = 1, reset_index = False, verbose = 1):
