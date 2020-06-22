@@ -1782,7 +1782,8 @@ class Interface():
 
 
 
-    def buildSurface(self, idx = 0, surface = 1, z = 1, verbose = 1, vacuum = 0):
+    def buildSurface(self, idx = 0, surface = 1, z = 1, verbose = 1,\
+                     strained = False, vacuum = 0):
         """Function for build a specific interface"""
         
         if verbose > 0:
@@ -1835,6 +1836,19 @@ class Interface():
             """Rotate the positions pos_rot = R*pos"""
             pos_ext = ut.rotate(pos_ext, initRot, verbose = verbose - 1)
 
+            if strained:
+                """If the cell is to be strained then convert to direct coordinates"""
+                pos_d = np.matmul(np.linalg.inv(new_base), pos_ext)
+
+                """Convert back to cartesian coordinates. Redefine the "new_base" to
+                   be teh strained base"""
+                new_base[0:2, 0:2] = self.cell_1[idx, :, :].copy()
+                pos_ext = np.matmul(new_base, pos_d)
+
+                if verbose > 0:
+                    string = "Surface 2 strained to match surface 1"
+                    ut.infoPrint(string)
+
         """Convert the entire new cell to direct coordinates"""
         pos_d = np.matmul(np.linalg.inv(new_base), pos_ext)
 
@@ -1862,7 +1876,7 @@ class Interface():
 
 
     def exportSurface(self, idx = 0, z = 1, verbose = 1, format = "lammps",\
-                      filename = None, vacuum = 0, surface = 1):
+                      filename = None, vacuum = 0, surface = 1, strained = False):
         """Function for writing an interface to a specific file format"""
 
         if filename is None:
@@ -1870,7 +1884,8 @@ class Interface():
 
         """Build the selected interface"""
         base, pos, type_n, mass = self.buildSurface(idx = idx, z = z, verbose = verbose,\
-                                              vacuum = vacuum, surface = surface)
+                                              vacuum = vacuum, surface = surface,\
+                                              strained = strained)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))

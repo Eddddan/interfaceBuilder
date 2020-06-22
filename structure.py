@@ -73,7 +73,7 @@ class Structure():
             if type_i is None:
                 type_i = np.ones(pos.shape[0])
                 type_n = np.chararray(pos.shape[0], itemsize = 2)
-                type_n[:] = "H"
+                type_n[:] = "A"
             else:
                 type_n = np.chararray(pos.shape[0], itemsize = 2)
                 for i, item in enumerate(np.unique(type_i)):
@@ -118,17 +118,6 @@ class Structure():
         else:
             """Else simply assign the type_i value as placeholder"""
             self.mass = type_i
-
-
-
-    def writeStructure(self, filename = None, format = "lammps"):
-        """Function for writing the structure to a file"""
-
-        if filename is not None:
-            file_io.writeData(filename = filename, atoms = self, format = format)
-        else:
-            file_io.writeData(filename = self.filename, atoms = self, format = format)
-
 
 
     def printStructure(self):
@@ -269,14 +258,14 @@ class Structure():
                 ut.infoPrint(string)
 
             pos_to = self.pos.copy()[idx_to, :]
-            pos_from = self.pos.copy()
+            pos_from = self.pos.copy()[idx, :]
             cell = self.cell
 
         ps = pos_to.shape[0]
         dist = np.zeros((np.shape(idx)[0] * ps, 3))
 
         for i, item in enumerate(idx):
-            d = pos_to - pos_from[item, :]
+            d = pos_to - pos_from[[i], :]
         
             d[d >  0.5] -= 1
             d[d < -0.5] += 1
@@ -298,10 +287,133 @@ class Structure():
         return dist
 
 
-    def getNearestNeighbors(self, idx, idx_to = None, N = 8):
-        """Function for getting index to nearest neighbors of specified atoms"""
 
+    def getNearestNeighbors(self, idx = None, idx_to = None, NN = 8,\
+                            verbose = 1):
+        """Function for getting index and distance to nearest neighbors 
+           of specified atoms"""
+
+        """Check some defaults"""
+        if idx is None: idx = np.arange(self.pos.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = np.array([idx])
+        if idx_to is None: idx_to = np.arange(self.pos.shape[0])
+        if isinstance(idx_to, (int, np.integer)): idx_to = np.array([idx_to])
         
+        """Change to cartesian coordinates"""
+        self.dir2car()
+
+        """Limit the NN search to one cell, (but wrap pbc)"""
+        box = self.getBoxLengths()
+        r = box / 2
+        max_pos = np.max(self.pos[idx, :], axis = 0) + r
+        min_pos = np.min(self.pos[idx, :], axis = 0) - r
+        lim = np.all(self.pos < max_pos, axis = 1) *\
+              np.all(self.pos > min_pos, axis = 1)
+        idx_to = np.intersect1d(self.idx[lim], idx_to)
+
+        if verbose > 0:
+            string = "Considering idx_to within [%.2f, %.2f] (x), [%.2f, "\
+                     " %.2f] (y), [%.2f,  %.2f] (z)" % (min_pos[0], max_pos[0],\
+                     min_pos[1], max_pos[1], min_pos[2], max_pos[2])
+            ut.infoPrint(string)
+
+        """Change to direct coordinates"""
+        self.car2dir()
+
+        index = np.zeros((np.shape(idx)[0], NN), dtype = np.int)
+        distance = np.zeros((np.shape(idx)[0], NN))
+        elements = np.chararray(shape = (np.shape(idx)[0], NN), itemsize = 2)
+
+        for i, item in enumerate(idx):
+            d = self.pos[idx_to, :].T - self.pos[[item], :].T
+        
+            d[d >  0.5] -= 1
+            d[d < -0.5] += 1
+
+            c = np.matmul(self.cell, d)
+            dist = np.sqrt(c[0, :]**2 + c[1, :]**2 + c[2, :]**2)
+            mask = dist > 0
+            dist = dist[mask]
+            si = np.argsort(dist)
+            index[i, :] = idx_to[mask][si][:NN]
+            distance[i, :] = dist[si][:NN]
+            elements[i, :] = self.type_n[index[i, :]]
+
+        return index, distance, elements
+
+
+    def getNearestNeighborCollection(self, idx = None, idx_to = None, NN = 8,\
+                                     verbose = 1):
+        """Function for getting nearest neighbors around specified atoms to 
+           specified atoms collected as an average with a standard deviation"""
+
+        """Check some defaults"""
+        if idx is None: idx = np.arange(self.pos.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = np.array([idx])
+        if idx_to is None: idx_to = np.arange(self.pos.shape[0])
+        if isinstance(idx_to, (int, np.integer)): idx_to = np.array([idx_to])
+        
+        """Change to cartesian coordinates"""
+        self.dir2car()
+
+        distance = self.getNearestNeighbors(idx = idx, idx_to = idx_to, NN = NN,\
+                                            verbose = verbose)[1]
+
+        dist_mean = np.mean(distance, axis = 0)
+        dist_std = np.std(distance, axis = 0)
+
+        return dist_mean, dist_std
+
+
+
+    def getNearestAngles(self, idx, idx_to, verbose = 1):
+        """Function for getting the angles between specified atoms
+           to specified atoms"""
+
+        print("Get angles")
+
+
+
+
+    def plotNearestNeighbors(self, idx, idx_to = None, NN = 8, verbose = True,\
+                             handle = False, row = 1, col = 1, N = 1, save = False,\
+                             format = "pdf", dpi = 100, **kwarg):
+        """Function to plot the distances to the N nearest neighbors"""
+        
+        if idx is None:
+            idx = [np.arange(self.pos.shape[0])]
+        elif isinstance(idx, (int, np.integer)):
+            idx = [np.array([idx])]
+        elif isinstance(idx[0], (int, np.integer)):
+            idx = [idx]
+
+        distance = self.getNearestNeighbors(idx = idx, idx_to = idx_to,\
+                                            NN = NN, verbose = verbose)[1]
+
+        if not handle:
+            hFig = plt.figure()
+
+        hAx = plt.subplot(row, col, N)
+        for i in range(np.shape(index)[0]):
+            hAx.plot(distance[i, :], **kwarg)
+        
+
+        hAx.set_title("Nearest Neighbor Distances")
+        hAx.set_xlabel("Neighbor")
+        hAx.set_ylabel("Distance, $(\AA)$")
+        
+        plt.tight_layout()
+        if save:
+            if save is True:
+                ut.save_fig(filename = "RDF.%s" % (idx, format), format = format,\
+                         dpi = dpi, verbose = verbose)
+            else:
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
+                         verbose = verbose)
+            plt.close()
+        else:
+            plt.show()
+            
 
 
 
