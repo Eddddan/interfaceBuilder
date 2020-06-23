@@ -34,6 +34,9 @@ class Interface():
         """E_i/A - E_s1/A - E_s2/A (Interface - slabs)"""
         self.w_sep = None
 
+        """E_i/A - E_s1/A - E_s2/A (Interface - slabs)"""
+        self.w_sep_strain = None
+
         """E_i/A - E_b1/A - E_b2/A (Interface - bulk)"""
         self.e_int = None
 
@@ -65,6 +68,7 @@ class Interface():
         self.ang = self.ang[keep]
         self.e_int = self.e_int[keep]
         self.w_sep = self.w_sep[keep]
+        self.w_sep_strain = self.w_sep_strain[keep]
 
         if verbose > 0:
             string = "Interfaces deleted: %i | Interfaces remaining: %i"\
@@ -92,6 +96,9 @@ class Interface():
         elif sort == "w_sep":
             """Opt int corresponding to chosen translation (0-based as translation)"""
             si = np.argsort(self.w_sep[opt])
+        elif sort == "w_sep_strain":
+            """Opt int corresponding to chosen translation (0-based as translation)"""
+            si = np.argsort(self.w_sep_strain[opt])
         elif sort == "eps_11":
             si = np.argsort(np.abs(self.eps_11))
         elif sort == "eps_22":
@@ -136,6 +143,7 @@ class Interface():
         self.ang = self.ang[index]
         self.e_int = self.e_int[index]
         self.w_sep = self.w_sep[index]
+        self.w_sep_strain = self.w_sep_strain[index]
 
 
     def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1):
@@ -403,7 +411,7 @@ class Interface():
 
            translation - int representing the specific translation, 0-based.
 
-           e_int - int representing the energy value"""
+           e_int - float representing the energy value"""
         
         s = self.e_int.shape
         t = translation
@@ -462,7 +470,7 @@ class Interface():
 
            translation - int representing the specific translation, 0-based.
 
-           w_sep - int representing the energy value"""
+           w_sep - float representing the energy value"""
         
         s = self.w_sep.shape
         t = translation
@@ -470,12 +478,12 @@ class Interface():
         if (t + 1) > s[1]:
             self.w_sep = np.concatenate((self.w_sep, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
             if verbose > 0:
-                string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
+                string = "Extending w_sep from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], (t + 1))
                 ut.infoPrint(string)
         
         if verbose > 0:
-            string = "E_int set to: %.2f at translation: %i for interface: %i"\
+            string = "W_sep set to: %.2f at translation: %i for interface: %i"\
                      % (w_sep, t, idx)
             ut.infoPrint(string)
 
@@ -505,13 +513,72 @@ class Interface():
         if np.max(t) > s[1]:
             self.w_sep = np.concatenate((self.w_sep, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
             if verbose > 0:
-                string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
+                string = "Extending w_sep from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], np.max(t))
                 ut.infoPrint(string)
 
         """t 0-based!"""
         for i, col in enumerate(t):
             self.w_sep[idx, col] = w_sep[:, i]
+
+
+    def setWsepStrain(self, idx, w_sep_strain, translation = 0, verbose = 1):
+        """Function for setting the work of sepparation (strained ref) of different translations
+
+           idx - int representing interface index, 0-based.
+
+           translation - int representing the specific translation, 0-based.
+
+           w_sep_strain - float representing the energy value"""
+        
+        s = self.w_sep_strain.shape
+        t = translation
+
+        if (t + 1) > s[1]:
+            self.w_sep_strain = np.concatenate((self.w_sep_strain, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+            if verbose > 0:
+                string = "Extending w_sep_strain from shape (%i,%i) to (%i,%i)"\
+                         % (s[0], s[1], s[0], (t + 1))
+                ut.infoPrint(string)
+        
+        if verbose > 0:
+            string = "W_sep_strain set to: %.2f at translation: %i for interface: %i"\
+                     % (w_sep, t, idx)
+            ut.infoPrint(string)
+
+        self.w_sep_strain[idx, t] = w_sep_strain
+
+
+    def setWsepStrainArray(self, idx, translation, w_sep_strain, verbose = 1):
+        """Function for setting the work of sepparation from an array of values
+
+           idx - 1d vector of interface index, 0 based.
+
+           translation - 1d vector of column index, 0 based.
+
+           w_sep_strain - 2d array of shape (idx,translation) containing energies."""
+
+        """Check inputs"""
+        if not isinstance(translation, (np.ndarray, list, range)):
+            print("<translation> parameter must be a np.ndarray, list or range")
+            return
+        if not isinstance(idx, (np.ndarray, list, range)):
+            print("<idx> parameter must be a np.ndarray, list or range")
+            return
+        
+        s = self.w_sep_strain.shape
+        t = translation
+
+        if np.max(t) > s[1]:
+            self.w_sep_strain = np.concatenate((self.w_sep_strain, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+            if verbose > 0:
+                string = "Extending w_sep_strain from shape (%i,%i) to (%i,%i)"\
+                         % (s[0], s[1], s[0], np.max(t))
+                ut.infoPrint(string)
+
+        """t 0-based!"""
+        for i, col in enumerate(t):
+            self.w_sep_strain[idx, col] = w_sep_strain[:, i]
 
 
 
@@ -773,6 +840,7 @@ class Interface():
         self.ang = ang[keep]
         self.e_int = np.zeros((self.atoms.shape[0], 1))
         self.w_sep = np.zeros((self.atoms.shape[0], 1))
+        self.w_sep_strain = np.zeros((self.atoms.shape[0], 1))
 
         """Further removal of interfaces based on specified critera follows below"""
 
@@ -1018,13 +1086,17 @@ class Interface():
             if i == 0:
                 string3 = "$E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
                 string4 = "$W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
+                string5 = "$WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
             elif (i % 4) == 0:
                 string3 += "\n$E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
                 string4 += "\n$W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
+                string5 += "\n$WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
             else:
                 string3 += ", $E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
                 string4 += ", $W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
+                string5 += ", $WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
         string3 += "\n"
+        string4 += "\n"
                 
         hAx.text(1.5, 5, string1 + string2 + string3 + string4, ha = "left", va = "center",\
                  fontsize = "small", bbox=dict(facecolor = (0, 0, 1, 0.1), edgecolor = (0, 0, 1, 0.5),\
@@ -1399,20 +1471,21 @@ class Interface():
 
         Available properties are
         ------------------------
-        idx      = Index of current sorting
-        eps_11   = Eps_11
-        eps_22   = Eps_22
-        eps_12   = Eps_12
-        eps_mas  = Eps_mas
-        atoms    = Nr of atoms
-        angle    = Angle between interface cell vectors
-        rotation = Initial rotation at creation
-        norm     = Sqrt(eps_11^2+eps_22^2+eps_12^2)
-        a_1      = Length of interface cell vector a_1
-        a_2      = Length of interface cell vector a_2
-        area     = Area of the interface
-        e_int    = Interfacial energy, for specified translation(s)
-        w_sep    = Work of separation, for specified translation(s)
+        idx          = Index of current sorting
+        eps_11       = Eps_11
+        eps_22       = Eps_22
+        eps_12       = Eps_12
+        eps_mas      = Eps_mas
+        atoms        = Nr of atoms
+        angle        = Angle between interface cell vectors
+        rotation     = Initial rotation at creation
+        norm         = Sqrt(eps_11^2+eps_22^2+eps_12^2)
+        a_1          = Length of interface cell vector a_1
+        a_2          = Length of interface cell vector a_2
+        area         = Area of the interface
+        e_int        = Interfacial energy, for specified translation(s)
+        w_sep        = Work of separation, for specified translation(s)
+        w_sep_strain = Work of separation (strained ref), for specified translation(s)
         """
 
         if translation is None: translation = [0]
@@ -1494,6 +1567,16 @@ class Interface():
                 
                 data[key] = self.w_sep[idx, :][:, translation]
                 lbl[key] = "Work of Separation, ($eV/\AA^2$)"
+
+            elif data[key].lower() == "w_sep_strain":
+                if len(translation) > self.w_sep_strain.shape[1]:
+                    string = "Translation (%i) outside w_sep_strain range (0,%i)"\
+                             % (np.max(translation), self.w_sep_strain.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = self.w_sep_strain[idx, :][:, translation]
+                lbl[key] = "Work of Separation (strained), ($eV/\AA^2$)"
 
             else:
                 plt.close()
@@ -1611,6 +1694,10 @@ class Interface():
         for i in range(self.w_sep.shape[1]):
             key = "W_sep_T%i" % (i)
             dataDict[key] = np.round(self.w_sep[idx, i], prec)
+
+        for i in range(self.w_sep_strain.shape[1]):
+            key = "W_sep_strain_T%i" % (i)
+            dataDict[key] = np.round(self.w_sep_strain[idx, i], prec)
 
         data = pd.DataFrame(dataDict)
         data.to_excel(filename)

@@ -139,7 +139,8 @@ class Structure():
 
         for i in range(self.pos.shape[0]):
             print("%5i %5s %5i %12.5f %12.5f %12.5f" % (self.idx[i], self.type_n[i].decode("utf-8"),\
-                                                        self.type_i[i], self.pos[i, 0], self.pos[i, 1], self.pos[i, 2]))
+                                                        self.type_i[i], self.pos[i, 0], self.pos[i, 1],\
+                                                        self.pos[i, 2]))
 
         print("-" * len(string))
         string = "Nr of Atoms: %i | Nr of Elements: %i" % (self.pos.shape[0], np.unique(self.type_i).shape[0])
@@ -264,6 +265,7 @@ class Structure():
         ps = pos_to.shape[0]
         dist = np.zeros((np.shape(idx)[0] * ps, 3))
 
+        """Measure distances between all specified atoms, wrap cell"""
         for i, item in enumerate(idx):
             d = pos_to - pos_from[[i], :]
         
@@ -324,17 +326,27 @@ class Structure():
         distance = np.zeros((np.shape(idx)[0], NN))
         elements = np.chararray(shape = (np.shape(idx)[0], NN), itemsize = 2)
 
+        """Measure distances between all specified atoms, wrap cell"""
         for i, item in enumerate(idx):
             d = self.pos[idx_to, :].T - self.pos[[item], :].T
         
             d[d >  0.5] -= 1
             d[d < -0.5] += 1
 
+            """Convert to cartesian coordinates"""
             c = np.matmul(self.cell, d)
+
+            """Calculate distances"""
             dist = np.sqrt(c[0, :]**2 + c[1, :]**2 + c[2, :]**2)
+            
+            """Remove distance to the same atom"""
             mask = dist > 0
             dist = dist[mask]
+
+            """Sort distances"""
             si = np.argsort(dist)
+
+            """Pick out the NN nearest in all variables"""
             index[i, :] = idx_to[mask][si][:NN]
             distance[i, :] = dist[si][:NN]
             elements[i, :] = self.type_n[index[i, :]]
@@ -374,10 +386,105 @@ class Structure():
 
 
 
+    def plotNNC(self, idx, idx_to = None, NN = 8, verbose = True,\
+               handle = False, row = 1, col = 1, N = 1, save = False,\
+               format = "pdf", dpi = 100, legend = None, **kwarg):
+        """Function for plotting a nearest neighbor collection with std"""
 
-    def plotNearestNeighbors(self, idx, idx_to = None, NN = 8, verbose = True,\
-                             handle = False, row = 1, col = 1, N = 1, save = False,\
-                             format = "pdf", dpi = 100, **kwarg):
+        lbl_1 = None
+        if idx is None:
+            idx = [np.arange(self.pos.shape[0])]
+        elif isinstance(idx, (int, np.integer)):
+            idx = [np.array([idx])]
+        elif isinstance(idx[0], (int, np.integer)):
+            idx = [idx]
+        elif isinstance(idx, str) and idx.lower() == "species":
+            idx, lbl_1 = self.getElementIdx()[:2]
+
+        lbl_2 = None
+        if idx_to is None:
+            idx_to = [np.arange(self.pos.shape[0])]
+        elif isinstance(idx_to, (int, np.integer)):
+            idx_to = [np.array([idx_to])]
+        elif isinstance(idx_to[0], (int, np.integer)):
+            idx_to = [idx_to]
+        elif isinstance(idx_to, str) and idx_to.lower() == "species":
+            idx_to, lbl_2 = self.getElementIdx()[:2]
+
+
+        if len(idx) == 1:
+            l_idx = np.zeros(len(idx_to), dtype = np.int)
+        else:
+            l_idx = np.arange(len(idx), dtype = np.int)
+            
+        if len(idx_to) == 1:
+            l_idx_to = np.zeros(len(idx), dtype = np.int)
+        else:
+            l_idx_to = np.arange(len(idx_to), dtype = np.int)
+        
+        if l_idx.shape[0] != l_idx_to.shape[0]:
+            string = "Length of idx and idx_to does not match (%i, %i). "\
+                     "Can be (1,N), (N,1) or (N,N)"\
+                     % (l_idx.shape[0], l_idx_to.shape[0])
+            ut.infoPrint(string)
+            return
+
+        x = []; y = []; s = []
+        for i in range(l_idx.shape[0]):
+            d_mean, d_std = self.getNearestNeighborCollection(idx = idx[l_idx[i]],\
+                                                              idx_to = idx_to[l_idx_to[i]],\
+                                                              NN = NN, verbose = verbose)
+            
+            x.append(np.arange(1, d_mean.shape[0] + 1))
+            y.append(d_mean)
+            s.append(d_std)
+
+        if not handle:
+            hFig = plt.figure()
+
+        hAx = plt.subplot(row, col, N)
+        label = "_ignore"
+        for i, item in enumerate(y):
+            if legend is not None:
+                if legend.lower() == "idx":
+                    label = "%i -> %i" % (l_idx[i], l_idx_to[i])
+                else:
+                    label = legend[i]
+            elif lbl_1 is not None and lbl_2 is not None:
+                label = "%2s -> %2s" % (lbl_1[i], lbl_2[i])
+            elif lbl_1 is not None:
+                label = "%2s -> %i" % (lbl_1[i], l_idx_to[i])
+            elif lbl_2 is not None:
+                label = "%i -> %2s" % (l_idx[i], lbl_2[i])
+
+            hAx.errorbar(x[i], y[i], yerr = s[i],\
+                         linestyle = "--", label = label, **kwarg)
+
+        hAx.set_xlabel("Neighbor")
+        hAx.set_ylabel("Distance, $(\AA)$")
+
+        if label != "_ignore":
+            hAx.legend(framealpha = 1, loc = "upper left")
+
+        hAx.set_title("Nearest Neighbor Distances")
+        plt.tight_layout()
+        if save:
+            if save is True:
+                ut.save_fig(filename = "NNC.%s" % (idx, format), format = format,\
+                            dpi = dpi, verbose = verbose)
+            else:
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
+                            verbose = verbose)
+            plt.close()
+        else:
+            plt.show()
+
+
+
+
+    def plotNN(self, idx, idx_to = None, NN = 8, verbose = True,\
+               handle = False, row = 1, col = 1, N = 1, save = False,\
+               format = "pdf", dpi = 100, **kwarg):
         """Function to plot the distances to the N nearest neighbors"""
         
         if idx is None:
@@ -405,7 +512,7 @@ class Structure():
         plt.tight_layout()
         if save:
             if save is True:
-                ut.save_fig(filename = "RDF.%s" % (idx, format), format = format,\
+                ut.save_fig(filename = "NN.%s" % (idx, format), format = format,\
                          dpi = dpi, verbose = verbose)
             else:
                 ut.save_fig(filename = save, format = format, dpi = dpi,\
@@ -470,7 +577,7 @@ class Structure():
         elif isinstance(idx[0], (int, np.integer)):
             idx = [idx]
         elif isinstance(idx, str) and idx.lower() == "species":
-            idx, lbl_1 = self.getElementIdx()
+            idx, lbl_1 = self.getElementIdx()[:2]
 
         lbl_2 = None
         if idx_to is None:
@@ -480,7 +587,7 @@ class Structure():
         elif isinstance(idx_to[0], (int, np.integer)):
             idx_to = [idx_to]
         elif isinstance(idx_to, str) and idx_to.lower() == "species":
-            idx_to, lbl_2 = self.getElementIdx()
+            idx_to, lbl_2 = self.getElementIdx()[:2]
             
 
         if len(idx) == 1:
@@ -555,12 +662,13 @@ class Structure():
     def getElementIdx(self):
         """Function for getting the atomic indices for each element"""
 
-        idx = []; element = []
+        idx = []; element = []; nr = []
         for i in np.unique(self.type_n):
             idx.append(self.idx[self.type_n == i])
             element.append(i.decode("utf-8"))
+            nr.append(self.type_i[idx[-1][0]])
 
-        return idx, element
+        return idx, element, nr
 
 
 
