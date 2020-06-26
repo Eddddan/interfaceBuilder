@@ -48,6 +48,7 @@ class Interface():
         self.spec_2 = structure_b.type_n
         self.mass_1 = structure_a.mass
         self.mass_2 = structure_b.mass
+        self.filename = None
 
 
 
@@ -75,6 +76,14 @@ class Interface():
                      % (np.sum(np.logical_not(keep)), np.sum(keep))
             ut.infoPrint(string)
 
+
+    def setFilename(self, filename, verbose = 1):
+        """Function to set filename"""
+        
+        self.filename = filename
+        if verbose > 0:
+            string = "Filename updated to: %s" % filename
+            ut.infoPrint(string)
 
 
     def sortInterfaces(self, sort = "atoms", opt = None, rev = False):
@@ -1449,7 +1458,7 @@ class Interface():
         hAx.set_yscale("log")
         hAx.set_ylabel("Nr of Atoms")
         hAx.set_xlabel(x_label)
-        hAx.set_title("Created Interfaces")
+        hAx.set_title(self.filename)
 
         plt.tight_layout()
         if save:
@@ -1466,28 +1475,31 @@ class Interface():
 
     def plotProperty(self, x, y, z = None, idx = None, col = 1, row = 1, N = 1, 
                      save = False, dpi = 100, format = "pdf", verbose = 1, handle = False,\
-                     translation = None, **kwarg):
+                     translation = None, other = None, **kwarg):
         """Function for plotting properties agains each other.
 
         Available properties are
         ------------------------
-        idx          = Index of current sorting
-        eps_11       = Eps_11
-        eps_22       = Eps_22
-        eps_12       = Eps_12
-        eps_mas      = Eps_mas
-        atoms        = Nr of atoms
-        angle        = Angle between interface cell vectors
-        rotation     = Initial rotation at creation
-        norm         = Sqrt(eps_11^2+eps_22^2+eps_12^2)
-        a_1          = Length of interface cell vector a_1
-        a_2          = Length of interface cell vector a_2
-        area         = Area of the interface
-        e_int        = Interfacial energy, for specified translation(s)
-        w_sep        = Work of separation, for specified translation(s)
-        w_sep_strain = Work of separation (strained ref), for specified translation(s)
+        idx               = Index of current sorting
+        eps_11            = Eps_11
+        eps_22            = Eps_22
+        eps_12            = Eps_12
+        eps_mas           = Eps_mas
+        atoms             = Nr of atoms
+        angle             = Angle between interface cell vectors
+        rotation          = Initial rotation at creation
+        norm              = Sqrt(eps_11^2+eps_22^2+eps_12^2)
+        a_1               = Length of interface cell vector a_1
+        a_2               = Length of interface cell vector a_2
+        area              = Area of the interface
+        e_int             = Interfacial energy, for specified translation(s)
+        w_sep             = Work of separation, for specified translation(s)
+        w_sep_strain      = Work of separation (strained ref), for specified translation(s)
+        w_sep_diff        = Difference in w_sep between tranlsations
+        w_sep_strain_diff = Difference in w_sep_strain between translations
         """
 
+        if idx is None: idx = np.arange(self.atoms.shape[0])
         if translation is None: translation = [0]
         if isinstance(translation, (int, np.integer)): translation = [translation]
         
@@ -1568,6 +1580,28 @@ class Interface():
                 data[key] = self.w_sep[idx, :][:, translation]
                 lbl[key] = "Work of Separation, ($eV/\AA^2$)"
 
+            elif data[key].lower() == "w_sep_diff":
+                if len(translation) > self.w_sep.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.w_sep[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep[idx, :][:, translation], axis = 1)
+                lbl[key] = "Diff in Work of Separation, ($eV/\AA^2$)"
+
+            elif data[key].lower() == "w_sep_strain_diff":
+                if len(translation) > self.w_sep.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.w_sep[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep[idx, :][:, translation], axis = 1)
+                lbl[key] = "Diff in Work of Separation, ($eV/\AA^2$)"
+
             elif data[key].lower() == "w_sep_strain":
                 if len(translation) > self.w_sep_strain.shape[1]:
                     string = "Translation (%i) outside w_sep_strain range (0,%i)"\
@@ -1578,6 +1612,10 @@ class Interface():
                 data[key] = self.w_sep_strain[idx, :][:, translation]
                 lbl[key] = "Work of Separation (strained), ($eV/\AA^2$)"
 
+            elif data[key].lower() == "other":
+                data[key] = other
+                lbl[key] = "Custom"
+
             else:
                 plt.close()
                 string = "Unrecognized x_data argument: %s" % x_data
@@ -1587,8 +1625,14 @@ class Interface():
         hFig = plt.figure()
 
         if data["z"] is None:
+            ls = kwarg.pop("linestyle", "none")
+            m = kwarg.pop("marker", "o")
+            ms = kwarg.pop("markersize", 1.5)
+            mew = kwarg.pop("markeredgewidth", 1)
+
             hAx = plt.subplot(row, col, N)
-            hAx.plot(data["x"], data["y"], **kwarg)
+            hAx.plot(data["x"], data["y"], linestyle = ls, mew = mew, marker = m,\
+                     markersize = ms, **kwarg)
             hAx.set_xlabel(lbl["x"])
             hAx.set_ylabel(lbl["y"])
         else:
@@ -1612,6 +1656,7 @@ class Interface():
 
         if handle: return
 
+        hAx.set_title(self.filename)
         if len(translation) > 1:
             lgd = []
             for i in translation:

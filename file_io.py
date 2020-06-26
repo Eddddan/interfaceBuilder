@@ -257,9 +257,74 @@ def writeLAMMPS(filename, atoms, verbose = 1):
                        atoms.pos[i, 1], atoms.pos[i, 2]))
 
 
-def readVASP(filename):
-    """Load VASP geometry file"""
-    print("loadVASP")
+def readVASP(filename, verbose = 1):
+    """Load VASP geometry POSCAR/CONTCARfile"""
+
+    if verbose > 0:
+        string = "Reading file: %s, format: VASP" % filename
+        ut.infoPrint(string)
+
+    selDyn = False
+    with open(filename, "r") as f:
+        f.readline() #Skip first line (comment)
+
+        """Read the scale parameter"""
+        scale = np.float(f.readline())
+        
+        """Read 3 lines containing the cell information"""
+        mat = np.zeros((3, 3))
+        mat[0, :] = [np.float(i) for i in f.readline().split()]
+        mat[1, :] = [np.float(i) for i in f.readline().split()]
+        mat[2, :] = [np.float(i) for i in f.readline().split()]
+        
+        """VASP cell is the transpose of the cell used in structure"""
+        mat = mat.T
+
+        """Read elements and teh number of elements"""
+        elements = f.readline().split()
+        nr = [np.int(i) for i in f.readline().split()]
+        c_nr = np.cumsum(nr)
+        nr_tot = np.sum(nr)
+        mass = np.ones(nr_tot)
+        t = np.chararray(shape = nr_tot, itemsize = 2)
+
+        for i, item in enumerate(nr):
+            if i == 0:
+                t[:c_nr[i]] = elements[i]
+            else:
+                t[c_nr[i - 1] : c_nr[i]] = elements[i]
+                mass[c_nr[i - 1] : c_nr[i]] += i
+
+        pos = np.zeros((nr_tot, 3))
+
+        """Read line and check if it is Selective Dyn or Dir/Cart tag"""
+        line = f.readline()
+        if line.lower().startswith("s"):
+            selDyn = True
+            frozen = np.zeros((nr_tot, 3))
+            line = f.readline()
+
+        if line.lower().startswith("d"):
+            coordinates = "d"
+        elif line.lower().startswith("c"):
+            coordinates = "c"
+
+        for i, line in enumerate(f):
+            pos[i, :] = [np.float(j) for j in line.split()[:3]]
+            if selDyn:
+                frozen[i, :] = [1 if j.lower() == "t" else 0 for j in line.split[3:]]
+            if i == (nr_tot - 1):
+                break
+
+        if selDyn:
+            frozen = frozen.astype(bool)
+
+        if coordinates == "d":
+            pos = np.matmul(mat, pos.T).T
+
+        idx = np.arange(nr_tot)
+
+        return mat, pos, t, idx, mass
 
 
 
@@ -313,10 +378,10 @@ def writeVASP(filename, atoms, direct = False, verbose = 1):
         for i, p in enumerate(pos):
             f.write("  %11.6f  %11.6f  %11.6f  %s  %s  %s\n"\
                         % (p[0], p[1], p[2], frozen[i, 0].decode("utf-8"),\
-                           frozen[i, 0].decode("utf-8"), frozen[i, 0].decode("utf-8")))
+                           frozen[i, 1].decode("utf-8"), frozen[i, 2].decode("utf-8")))
 
 
-def readXYZ(filename):
+def readXYZ(filename, verbose = 1):
     """Load XYZ geometry file"""
     print("loadXYZ")
 
@@ -352,23 +417,23 @@ def writeXYZ(filename, atoms, verbose = 1):
 
 
 
-def readData(filename, format = "eon"):
+def readData(filename, format = "eon", verbose = 1):
     """Entry point for loading geometry files"""
 
     if "eon".startswith(format.lower()):
-        mat, pos, t, idx, mass = readEON(filename)
+        mat, pos, t, idx, mass = readEON(filename, verbose = verbose)
         return mat, pos, t, idx, mass
 
     elif "lammps".startswith(format.lower()):
-        mat, pos, t, idx, mass = readLAMMPS(filename)
+        mat, pos, t, idx, mass = readLAMMPS(filename, verbose = verbose)
         return mat, pos, t, idx, mass
 
     elif "vasp".startswith(format.lower()):
-        mat, pos, t, idx, mass = readVASP(filename)
+        mat, pos, t, idx, mass = readVASP(filename, verbose = verbose)
         return mat, pos, t, idx, mass
 
     elif "xyz".startswith(format.lower()):
-        mat, pos, t, idx, mass = readXYZ(filename)
+        mat, pos, t, idx, mass = readXYZ(filename, verbose = verbose)
         return mat, pos, t, idx, mass
 
     else:

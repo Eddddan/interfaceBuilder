@@ -413,3 +413,88 @@ def save_fig(filename = "Interface_figure.pdf", format = "pdf", dpi = 100, verbo
     if verbose > 0:
         string = "Saved figure: %s" % filename
         infoPrint(string)
+
+
+def load_NN_array(filename):
+    """Function for loading data from an NN array"""
+    
+    with open(filename, 'r') as f:
+        data = np.loadtxt(f)
+
+    #si = np.lexsort((data[:, 1], data[:, 0]))
+
+    """Unpack the first 3 fields"""
+    interface = data[:, 0].astype(np.int)
+    translation = data[:, 1].astype(np.int)
+    element = data[:, 2].astype(np.int)
+
+    """Pick out the mean values and the standard deviations"""
+    NN = np.int((data.shape[1] - 3) / 2)
+    mean = data[:, 3 : NN + 3]
+    std = data[:, NN + 3:]
+
+    si = np.argsort(interface)
+
+    return mean, std, interface, translation, element
+
+
+def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
+            format = "pdf", dpi = 100, verbose = 1, **kwarg):
+    """Function for plotting NN data from NN arrays"""
+
+    """Set some defaults"""
+    if isinstance(idx, (np.integer, int)): idx = np.array([idx])
+    if isinstance(idx, (range, list)): idx = np.array(idx)
+    if isinstance(trans, (np.integer, int)): trans = np.array([trans])
+    if isinstance(trans, (range, list)): trans = np.array(trans)
+
+    """Check the data shapes and extend if possible"""
+    if np.shape(idx)[0] == 1:
+        idx = np.repeat(idx, np.shape(trans)[0])
+    elif np.shape(trans)[0] == 1:
+        trans = np.repeat(trans, np.shape(idx)[0])
+    elif np.shape(idx)[0] != np.shape(trans)[0]:
+        string = "Length of idx and idx_to does not match (%i, %i). "\
+                 "Can be (1,N), (N,1) or (N,N)"\
+                 % (l_idx.shape[0], l_idx_to.shape[0])
+        infoPrint(string)
+        return
+
+    """Load the data from specified file"""
+    mean, std, i_data, t_data, e_data = load_NN_array(filename)
+
+    """Set range for x values"""
+    x = np.arange(1, mean.shape[1] + 1, dtype = np.int)
+    
+    hFig = plt.figure()
+    hAx = plt.subplot(row, col, N)
+
+    """Set some defaults"""
+    ls = kwarg.pop("linestyle", "--")
+    lw = kwarg.pop("linewidth", 0.5)
+    m = kwarg.pop("marker", "o")
+    ms = kwarg.pop("markersize", 3)
+    cs = kwarg.pop("capsize", 2)
+    elw = kwarg.pop("elinewidth", 1)
+
+    for i in idx:
+        hAx.errorbar(x, mean[i, :], yerr = std[i, :], linestyle = ls, linewidth = lw,\
+                     marker = m, markersize = ms, capsize = cs, elinewidth = elw,\
+                     label = "I-%i, T-%i" % (i_data[i],t_data[i]), **kwarg)
+
+    hAx.set_xlabel("Neighbor")
+    hAx.set_ylabel("Distance, $(\AA)$")
+    hAx.set_title("Nearest Neighbor Distances")
+    hAx.legend(framealpha = 1, loc = "upper left")
+        
+    plt.tight_layout()
+    if save:
+        if save is True:
+            save_fig(filename = "NN.%s" % (format), format = format,\
+                     dpi = dpi, verbose = verbose)
+        else:
+            save_fig(filename = save, format = format, dpi = dpi,\
+                     verbose = verbose)
+            plt.close()
+    else:
+        plt.show()

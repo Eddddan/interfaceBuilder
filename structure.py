@@ -119,6 +119,44 @@ class Structure():
             """Else simply assign the type_i value as placeholder"""
             self.mass = type_i
 
+        self.sortStructure()
+
+
+    def sortStructure(self, sort = "type", reset_idx = False, verbose = 1):
+        
+        if sort.lower() == "type":
+            """Sorts the structure based on type_i then z then y then x"""
+            si = np.lexsort((self.pos[:, 0], self.pos[:, 1], self.pos[:, 2], self.type_i))
+
+        elif sort.lower() == "index":
+            """Sort by the idx property, (index as written by the simulation programs)"""
+            si = np.argsort(self.idx)
+
+        if verbose > 0:
+            string = "Sorting structure by %s" % sort.lower()
+            ut.infoPrint(string)
+
+        """Sort as specified"""
+        self.pos = self.pos[si]
+        self.type_i = self.type_i[si]
+        self.type_n = self.type_n[si]
+        self.frozen = self.frozen[si]
+        self.mass = self.mass[si]
+
+        if reset_idx:
+            self.resetIndex(verbose = verbose)
+        else:
+            self.idx = self.idx[si]
+
+
+    def resetIndex(self, verbose = 1):
+        """Function for reseting the atomic indicies"""
+
+        self.idx = np.arange(self.pos.shape[0])
+        if verbose > 0:
+            string = "Reseting atom index"
+            ut.infoPrint(string)
+
 
     def printStructure(self):
 
@@ -259,7 +297,7 @@ class Structure():
                 ut.infoPrint(string)
 
             pos_to = self.pos.copy()[idx_to, :]
-            pos_from = self.pos.copy()[idx, :]
+            pos_from = self.pos.copy()
             cell = self.cell
 
         ps = pos_to.shape[0]
@@ -267,7 +305,7 @@ class Structure():
 
         """Measure distances between all specified atoms, wrap cell"""
         for i, item in enumerate(idx):
-            d = pos_to - pos_from[[i], :]
+            d = pos_to - pos_from[[item], :]
         
             d[d >  0.5] -= 1
             d[d < -0.5] += 1
@@ -291,7 +329,8 @@ class Structure():
 
 
     def getNearestNeighbors(self, idx = None, idx_to = None, NN = 8,\
-                            verbose = 1):
+                            verbose = 1, limit = np.array([5, 5, 5]),\
+                            extend = np.array([1, 1, 1], dtype = bool)):
         """Function for getting index and distance to nearest neighbors 
            of specified atoms"""
 
@@ -304,11 +343,10 @@ class Structure():
         """Change to cartesian coordinates"""
         self.dir2car()
 
-        """Limit the NN search to one cell, (but wrap pbc)"""
-        box = self.getBoxLengths()
-        r = box / 2
-        max_pos = np.max(self.pos[idx, :], axis = 0) + r
-        min_pos = np.min(self.pos[idx, :], axis = 0) - r
+        """Do a rough check which atoms must be included in the NN search"""
+        max_pos = np.max(self.pos[idx, :], axis = 0) + limit
+        min_pos = np.min(self.pos[idx, :], axis = 0) - limit
+
         lim = np.all(self.pos < max_pos, axis = 1) *\
               np.all(self.pos > min_pos, axis = 1)
         idx_to = np.intersect1d(self.idx[lim], idx_to)
@@ -319,26 +357,64 @@ class Structure():
                      min_pos[1], max_pos[1], min_pos[2], max_pos[2])
             ut.infoPrint(string)
 
-        """Change to direct coordinates"""
-        self.car2dir()
+        """Cell extension to comply with the sepecified limit"""
+        box = self.getBoxLengths()
+        rep = np.ceil(limit / box) - 1
+        rep = rep.astype(np.int)
+        rep[np.logical_not(extend)] = 0
 
-        index = np.zeros((np.shape(idx)[0], NN), dtype = np.int)
+        if np.any(rep > 0):
+            if verbose > 0:
+                string = "Replicating cell by %i, %i, %i (x, y, z)"\
+                         % (rep[0] + 1, rep[1] + 1, rep[2] + 1)
+                ut.infoPrint(string)
+
+            """Extend teh cell"""
+            pos_to, cell = self.getExtendedPositions(x = rep[0], y = rep[1], z = rep[2],\
+                                                     idx = idx_to, return_cart = True,\
+                                                     verbose = verbose - 1)
+
+            """Change to cartesian coordinates"""
+            self.dir2car()
+
+            """Change back to direct coordinates using the new extended cell"""
+            pos_to = np.matmul(np.linalg.inv(cell), pos_to.T)
+            pos_from = np.matmul(np.linalg.inv(cell), self.pos.T) 
+
+        else:
+            """Change to direct coordinates"""
+            self.car2dir()
+
+            if verbose > 0:
+                string = "Cell is only wrapped, not extended"
+                ut.infoPrint(string)
+
+            pos_to = self.pos.copy()[idx_to, :].T
+            pos_from = self.pos.copy().T
+            cell = self.cell
+
+        if pos_to.shape[1] - 1 < NN:
+            string = "Within current limits (%.2f, %.2f, %.2f) fewer NN (%i) "\
+                     "are present than specified (%i)" % (limit[0], limit[1],\
+                     limit[2], pos_to.shape[1] - 1, NN)
+            ut.infoPrint(string)
+            return
+
         distance = np.zeros((np.shape(idx)[0], NN))
-        elements = np.chararray(shape = (np.shape(idx)[0], NN), itemsize = 2)
 
         """Measure distances between all specified atoms, wrap cell"""
         for i, item in enumerate(idx):
-            d = self.pos[idx_to, :].T - self.pos[[item], :].T
-        
+            d = pos_to - pos_from[:, [item]]
+
             d[d >  0.5] -= 1
             d[d < -0.5] += 1
 
             """Convert to cartesian coordinates"""
-            c = np.matmul(self.cell, d)
+            c = np.matmul(cell, d)
 
             """Calculate distances"""
             dist = np.sqrt(c[0, :]**2 + c[1, :]**2 + c[2, :]**2)
-            
+
             """Remove distance to the same atom"""
             mask = dist > 0
             dist = dist[mask]
@@ -347,15 +423,14 @@ class Structure():
             si = np.argsort(dist)
 
             """Pick out the NN nearest in all variables"""
-            index[i, :] = idx_to[mask][si][:NN]
             distance[i, :] = dist[si][:NN]
-            elements[i, :] = self.type_n[index[i, :]]
 
-        return index, distance, elements
+        return distance
 
 
     def getNearestNeighborCollection(self, idx = None, idx_to = None, NN = 8,\
-                                     verbose = 1):
+                                     verbose = 1, limit = np.array([5, 5, 5]),\
+                                     extend = np.array([1, 1, 1], dtype = bool)):
         """Function for getting nearest neighbors around specified atoms to 
            specified atoms collected as an average with a standard deviation"""
 
@@ -369,7 +444,16 @@ class Structure():
         self.dir2car()
 
         distance = self.getNearestNeighbors(idx = idx, idx_to = idx_to, NN = NN,\
-                                            verbose = verbose)[1]
+                                            verbose = verbose, limit = limit,\
+                                            extend = extend)
+
+        """Return if less than NN neighbors could be found"""
+        if distance is None: 
+            return
+
+        if verbose > 0:
+            string = "Calculated %i nearest neighbors for %i atoms" % (NN, distance.shape[0])
+            ut.infoPrint(string)
 
         dist_mean = np.mean(distance, axis = 0)
         dist_std = np.std(distance, axis = 0)
@@ -442,6 +526,14 @@ class Structure():
         if not handle:
             hFig = plt.figure()
 
+        """Set some defaults"""
+        ls = kwarg.pop("linestyle", "--")
+        lw = kwarg.pop("linewidth", 0.5)
+        m = kwarg.pop("marker", "o")
+        ms = kwarg.pop("markersize", 3)
+        cs = kwarg.pop("capsize", 2)
+        elw = kwarg.pop("elinewidth", 1)
+
         hAx = plt.subplot(row, col, N)
         label = "_ignore"
         for i, item in enumerate(y):
@@ -457,8 +549,8 @@ class Structure():
             elif lbl_2 is not None:
                 label = "%i -> %2s" % (l_idx[i], lbl_2[i])
 
-            hAx.errorbar(x[i], y[i], yerr = s[i],\
-                         linestyle = "--", label = label, **kwarg)
+            hAx.errorbar(x[i], y[i], yerr = s[i], linestyle = ls, marker = m, capsize = cs,\
+                         elinewidth = elw, markersize = ms, linewidth = lw, label = label, **kwarg)
 
         hAx.set_xlabel("Neighbor")
         hAx.set_ylabel("Distance, $(\AA)$")
@@ -470,7 +562,7 @@ class Structure():
         plt.tight_layout()
         if save:
             if save is True:
-                ut.save_fig(filename = "NNC.%s" % (idx, format), format = format,\
+                ut.save_fig(filename = "NNC.%s" % (format), format = format,\
                             dpi = dpi, verbose = verbose)
             else:
                 ut.save_fig(filename = save, format = format, dpi = dpi,\
@@ -486,23 +578,28 @@ class Structure():
                handle = False, row = 1, col = 1, N = 1, save = False,\
                format = "pdf", dpi = 100, **kwarg):
         """Function to plot the distances to the N nearest neighbors"""
-        
-        if idx is None:
-            idx = [np.arange(self.pos.shape[0])]
-        elif isinstance(idx, (int, np.integer)):
-            idx = [np.array([idx])]
-        elif isinstance(idx[0], (int, np.integer)):
-            idx = [idx]
 
+        if isinstance(idx, (np.integer, int)): idx = np.array([idx])
+        if idx_to is None: idx_to = np.arange(self.pos.shape[0])
+        
         distance = self.getNearestNeighbors(idx = idx, idx_to = idx_to,\
                                             NN = NN, verbose = verbose)[1]
-
+        
+        x = np.arange(1, distance.shape[1] + 1)
+        
         if not handle:
             hFig = plt.figure()
 
+        """Set some defaults"""
+        ls = kwarg.pop("linestyle", "--")
+        lw = kwarg.pop("linewidth", 0.5)
+        m = kwarg.pop("marker", "o")
+        ms = kwarg.pop("markersize", 3)
+
         hAx = plt.subplot(row, col, N)
-        for i in range(np.shape(index)[0]):
-            hAx.plot(distance[i, :], **kwarg)
+        for i in range(np.shape(distance)[0]):
+            hAx.plot(x, distance[i, :], linestyle = ls, marker = m, markersize = ms,\
+                     linewidth = lw, **kwarg)
         
 
         hAx.set_title("Nearest Neighbor Distances")
@@ -512,7 +609,7 @@ class Structure():
         plt.tight_layout()
         if save:
             if save is True:
-                ut.save_fig(filename = "NN.%s" % (idx, format), format = format,\
+                ut.save_fig(filename = "NN.%s" % (format), format = format,\
                          dpi = dpi, verbose = verbose)
             else:
                 ut.save_fig(filename = save, format = format, dpi = dpi,\
@@ -649,7 +746,7 @@ class Structure():
         plt.tight_layout()
         if save:
             if save is True:
-                ut.save_fig(filename = "RDF.%s" % (idx, format), format = format,\
+                ut.save_fig(filename = "RDF.%s" % (format), format = format,\
                          dpi = dpi, verbose = verbose)
             else:
                 ut.save_fig(filename = save, format = format, dpi = dpi,\
@@ -662,11 +759,12 @@ class Structure():
     def getElementIdx(self):
         """Function for getting the atomic indices for each element"""
 
+        index = np.arange(self.pos.shape[0])
         idx = []; element = []; nr = []
         for i in np.unique(self.type_n):
-            idx.append(self.idx[self.type_n == i])
+            idx.append(index[self.type_n == i])
+            nr.append(self.type_i[self.type_n == i][0])
             element.append(i.decode("utf-8"))
-            nr.append(self.type_i[idx[-1][0]])
 
         return idx, element, nr
 
@@ -733,6 +831,9 @@ class Structure():
 
         if idx is None: idx = np.arange(self.pos.shape[0])
         if isinstance(idx, (np.integer, int)): idx = np.arange([idx])
+
+        """Total number of atoms"""
+        N = self.pos.shape[0]
 
         """Change to direct coordinates"""
         self.car2dir()
