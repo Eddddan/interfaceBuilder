@@ -438,6 +438,18 @@ def load_NN_array(filename):
     return mean, std, interface, translation, element
 
 
+def get_NN_count(filename, cutoff = 3.8):
+    """Function for getting the nr of NN within a specified cutoff"""
+
+    mean, std, i_data, t_data, e_data = load_NN_array(filename)
+
+    count = np.sum(mean < cutoff, axis = 1)
+    count = np.reshape(count, (-1, np.max(t_data) + 1))
+
+    return count
+    
+
+
 def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
             format = "pdf", dpi = 100, verbose = 1, **kwarg):
     """Function for plotting NN data from NN arrays"""
@@ -447,18 +459,6 @@ def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
     if isinstance(idx, (range, list)): idx = np.array(idx)
     if isinstance(trans, (np.integer, int)): trans = np.array([trans])
     if isinstance(trans, (range, list)): trans = np.array(trans)
-
-    """Check the data shapes and extend if possible"""
-    if np.shape(idx)[0] == 1:
-        idx = np.repeat(idx, np.shape(trans)[0])
-    elif np.shape(trans)[0] == 1:
-        trans = np.repeat(trans, np.shape(idx)[0])
-    elif np.shape(idx)[0] != np.shape(trans)[0]:
-        string = "Length of idx and idx_to does not match (%i, %i). "\
-                 "Can be (1,N), (N,1) or (N,N)"\
-                 % (l_idx.shape[0], l_idx_to.shape[0])
-        infoPrint(string)
-        return
 
     """Load the data from specified file"""
     mean, std, i_data, t_data, e_data = load_NN_array(filename)
@@ -473,14 +473,18 @@ def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
     ls = kwarg.pop("linestyle", "--")
     lw = kwarg.pop("linewidth", 0.5)
     m = kwarg.pop("marker", "o")
-    ms = kwarg.pop("markersize", 3)
+    ms = kwarg.pop("markersize", 4)
     cs = kwarg.pop("capsize", 2)
     elw = kwarg.pop("elinewidth", 1)
 
     for i in idx:
-        hAx.errorbar(x, mean[i, :], yerr = std[i, :], linestyle = ls, linewidth = lw,\
-                     marker = m, markersize = ms, capsize = cs, elinewidth = elw,\
-                     label = "I-%i, T-%i" % (i_data[i],t_data[i]), **kwarg)
+        for t in trans:
+            y = mean[i_data == i, :][t_data[i_data == i] == t, :]
+            yerr = std[i_data == i, :][t_data[i_data == i] == t, :]
+
+            hAx.errorbar(x, y = y[0, :], yerr = yerr[0, :], linestyle = ls, linewidth = lw,\
+                         marker = m, markersize = ms, capsize = cs, elinewidth = elw,\
+                         label = "I-%i, T-%i" % (i, t), **kwarg)
 
     hAx.set_xlabel("Neighbor")
     hAx.set_ylabel("Distance, $(\AA)$")

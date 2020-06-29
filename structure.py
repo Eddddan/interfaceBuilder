@@ -236,6 +236,28 @@ class Structure():
 
 
 
+    def getAtoms(self, mode):
+        """get index of atoms that match supplied criteria
+
+        Mode is supplied as a dict with keyword specified as below
+        and containing a list of 
+
+        i.e. {"box": [x_lo, x_hi, y_lo, y_hi, z_lo, z_hi], "type": [2, 3]}
+        Slice out box within coordinates x,y,z and additionally of type 2 or 3
+
+        Mode and options
+        ----------------
+        box    - [x_lo, x_hi, y_lo, y_hi, z_lo, z_hi]
+        sphere - [x, y, z, radius]
+        type   - [list of all types to include]
+        idx    - [list of all atomic indices to include]
+        """
+
+        print("Get atoms")
+        
+
+
+
     def getNeighborDistance(self, idx = None, r = 6, idx_to = None,\
                             extend = np.array([1, 1, 1], dtype = bool),\
                             verbose = 1):
