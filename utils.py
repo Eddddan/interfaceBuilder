@@ -502,3 +502,4 @@ def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
             plt.close()
     else:
         plt.show()
+

@@ -592,7 +592,7 @@ class Interface():
 
 
     def getAreas(self, idx = None, cell = 1):
-        """function for getting the area of multiple interfaces"""
+        """Function for getting the area of multiple interfaces"""
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
 
@@ -692,7 +692,7 @@ class Interface():
                    limit = None, exp = 1, verbose = 1, min_angle = 10,\
                    remove_asd = True, asd_tol = 7, limit_asr = False,\
                    asr_tol = 1e-7, asr_iter = 350, asr_strain = "eps_mas",\
-                   asr_endpoint = "over"):
+                   asr_endpoint = "over", target = None):
 
         """Get number of atoms per area (xy) in base cell 1 and 2"""
         rhoA = self.pos_1.shape[0] / np.abs(np.cross(self.base_1[0:2, 0], self.base_1[0:2, 1]))
@@ -743,6 +743,13 @@ class Interface():
 
         """Snap the e vectors to the A grid by rounding e to integers"""
         e = np.round(e, 0).astype(int)
+
+        """If target is supplied the matching is done against
+           those specific repetitions. Supplied as a 2x2 matrix 
+           with basis vectors as columns. The righthanded version
+           will be returned"""
+        if target is not None:
+            e = np.tile(np.array(target)[None, :, :], (R.shape[0], 1, 1))
 
         """Caclculate the new (strained) d vectors (f), f = A * eInt"""
         f = np.matmul(self.base_1[0:2, 0:2], e)
@@ -935,7 +942,7 @@ class Interface():
                                     strain = asr_strain, endpoint = asr_endpoint,\
                                     verbose = verbose)
 
-        """Sort the interaces based on number of atoms"""
+        """Sort the interfaces based on number of atoms"""
         self.sortInterfaces()
 
 
@@ -954,11 +961,10 @@ class Interface():
 
 
     def plotTranslations(self, surface, translation = None):
-        """unction for plotting specified translations"""
+        """Function for plotting specified translations"""
         print("Do something")
 
         
-
 
 
 
@@ -1043,7 +1049,7 @@ class Interface():
         hAx.tick_params()
 
         """Second plot, align cell 1 to x axis"""
-        self.plotInterface(annotate = True, idx = idx, verbose = verbose,\
+        self.plotInterface(annotate = True, idx = idx, verbose = 0,\
                            align_base = "cell_1", scale = False, save = False,\
                            handle = True, col = 2, row = 2, N = 2)
 
@@ -1377,30 +1383,31 @@ class Interface():
     def plotCombinations(self, idx = None, const = None, exp = 1,\
                          mark = None, save = False, format = "pdf",\
                          dpi = 100, handle = False, eps = "eps_mas",\
-                         verbose = 1, col = 1, row = 1, N = 1, mark_ms = 3,\
-                         mark_m = "x", marker = "o", **kwarg):
+                         verbose = 1, col = 1, row = 1, N = 1, mark_ms = 3.5,\
+                         mark_m = "s", marker = "o", **kwarg):
         """Plots strain vs. atoms for the interfaces"""
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
 
+        if not handle: hFig = plt.figure()
         hAx = plt.subplot(row, col, N)
         
         atoms = self.atoms[idx]
 
-        if eps == "eps_11":
+        if eps.lower() == "eps_11":
             strain = np.abs(self.eps_11)[idx]
-            x_label = "Strain $abs(\epsilon_{11})$ (%)"
+            x_label = "$|\epsilon_{11}|$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
-        elif eps == "eps_22":
+        elif eps.lower() == "eps_22":
             strain = np.abs(self.eps_22)[idx]
-            x_label = "Strain $abs(\epsilon_{22})$ (%)"
+            x_label = "$|\epsilon_{22}|$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
-        elif eps == "eps_12":
+        elif eps.lower() == "eps_12":
             strain = np.abs(self.eps_12)[idx]
-            x_label = "Strain $abs(\epsilon_{12})$ (%)"
+            x_label = "$|\epsilon_{12}|$ (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
-            x_label = "Strain $\epsilon_{mas}$ (%)"
+            x_label = "$(\epsilon_{11}+\epsilon_{22}+\epsilon_{12})/3$ (%)"
             strain = self.eps_mas[idx]
 
         if verbose > 0:
@@ -1419,17 +1426,23 @@ class Interface():
             strain = strain[np.logical_not(mask)]
             atoms = atoms[np.logical_not(mask)]
 
+
+        lines = []
         if const is not None and self.atoms.shape[0] > 2:
 
             """Find atom/strain pairs below limit set by atoms = A * strain ** exp"""
             low = atoms < (const * strain ** exp)
             hi = np.logical_not(low)
 
-            hAx.plot(strain[low] * 100, atoms[low], color = 'b', linestyle = "None",\
-                     marker = "o", mew = 0.5, **kwarg)
+            l = hAx.plot(strain[low] * 100, atoms[low], color = 'b', linestyle = "None",\
+                              marker = "o", mew = 0.5, **kwarg)
 
-            hAx.plot(strain[hi] * 100, atoms[hi], color = 'r', linestyle = "None",\
-                     marker = "o", mew = 0.5, **kwarg)
+            lines.append(l[0])
+
+            l = hAx.plot(strain[hi] * 100, atoms[hi], color = 'r', linestyle = "None",\
+                         marker = "o", mew = 0.5, **kwarg)
+
+            lines.append(l[0])
 
             """Plot the dividing line for the specified limit"""
             j = np.log(np.max(atoms) / const) / exp
@@ -1442,17 +1455,79 @@ class Interface():
                 string = "Items below: %i | Items above: %i" % (np.sum(low), np.sum(hi))
                 ut.infoPrint(string)
         else:
-            hAx.plot(strain * 100, atoms, color = 'b', linestyle = "None", marker = "o",\
-                     mew = 0.5, **kwarg)
+            l = hAx.plot(strain * 100, atoms, color = 'b', linestyle = "None", marker = "o",\
+                         mew = 0.5, **kwarg)
+
+            lines.append(l[0])
 
         if mark is not None:
-            hAx.plot(strain_m * 100, atoms_m, color = 'k', marker = mark_m,\
-                     linestyle = "None", markersize = mark_ms, mfc = 'k', mew = 1.2)
+            l = hAx.plot(strain_m * 100, atoms_m, color = 'm', marker = mark_m,\
+                         linestyle = "None", markersize = mark_ms, mfc = 'm', mew = 1, mec = 'k')
+            
+            lines.append(l[0])
+
             if verbose > 0:
                 string = "Items marked: %i" % (strain_m.shape[0])
                 ut.infoPrint(string)
+                if verbose > 1:
+                    self.printInterfaces(idx = np.arange(mask.shape[0])[mask])
         
         if handle: return
+
+        print(lines)
+
+        an = hAx.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
+                          bbox=dict(boxstyle="round", fc="w"),
+                          arrowprops=dict(arrowstyle="->"))
+        an.set_visible(False)
+
+
+        def update_annotation(line, ind):
+            x, y = line.get_data()
+            xVal = x[ind["ind"][0]]
+            yVal = y[ind["ind"][0]]
+
+            an.xy = (xVal, yVal)
+            text = "%.3f, %i" % (xVal, yVal)
+
+            if eps.lower() == "eps_11":
+                match = (np.round(np.abs(self.eps_11), 6) == np.round((xVal / 100), 6)) * (self.atoms == yVal)
+            elif eps.lower() == "eps_22":
+                match = (np.round(np.abs(self.eps_22), 6) == np.round((xVal / 100), 6)) * (self.atoms == yVal)
+            elif eps.lower() == "eps_12":
+                match = (np.round(np.abs(self.eps_12), 6) == np.round((xVal / 100), 6)) * (self.atoms == yVal)    
+            else:
+                match = (np.round(self.eps_mas, 6) == np.round((xVal / 100), 6)) * (self.atoms == yVal)
+
+            match = np.arange(match.shape[0])[match]
+            self.printInterfaces(idx = match)
+
+            if not isinstance(match, (int, np.integer)):
+                match = ", ".join([str(i) for i in match])
+            else:
+                match = str(match)
+            
+            text = "%.3f, %i, (%s)" % (xVal, yVal, match)
+            an.set_text(text)
+            an.get_bbox_patch().set_alpha(0.92)
+
+
+        def click(event):
+            vis = an.get_visible()
+            if event.inaxes == hAx:
+                for line in lines:
+                    cont, ind = line.contains(event)
+                    if cont:
+                        break
+
+                if cont:
+                    update_annotation(line, ind)
+                    an.set_visible(True)
+                    hFig.canvas.draw_idle()
+                else:
+                    if vis:
+                        an.set_visible(False)
+                        hFig.canvas.draw_idle()
 
         hAx.set_xscale("log")
         hAx.set_yscale("log")
@@ -1470,7 +1545,9 @@ class Interface():
                          verbose = verbose)
             plt.close()
         else:
+            hFig.canvas.mpl_connect("button_release_event", click)
             plt.show()
+
 
 
     def plotProperty(self, x, y, z = None, idx = None, col = 1, row = 1, N = 1, 
@@ -1497,6 +1574,8 @@ class Interface():
         w_sep_strain      = Work of separation (strained ref), for specified translation(s)
         w_sep_diff        = Difference in w_sep between tranlsations
         w_sep_strain_diff = Difference in w_sep_strain between translations
+
+        plot x vs. y vs. z (optional) with z data values displayed in a colormap.
         """
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
@@ -1558,7 +1637,19 @@ class Interface():
 
             elif data[key].lower() == "area":
                 data[key] = self.getAreas(idx = idx, cell = 1)
-                lbl[key] = "Area, ($\AA2$)"
+                lbl[key] = "Area, ($\AA^2$)"
+
+            elif data[key].lower() == "density":
+                area = self.getAreas(idx = idx, cell = 1)
+                base_area_1 = np.abs(np.cross(self.base_1[0, :2], self.base_1[1, :2]))
+                base_area_2 = np.abs(np.cross(self.base_2[0, :2], self.base_2[1, :2]))
+
+                vol = self.base_2[2, 2] * area
+                atoms = self.atoms[idx] - area * (self.pos_1.shape[0] / base_area_1)
+                norm_density = self.pos_2.shape[0] / (base_area_2 * self.base_2[2, 2])
+
+                data[key] = atoms / (vol * norm_density)
+                lbl[key] = "Atom density, ($Atoms/\AA^2$)"
 
             elif data[key].lower() == "e_int":
                 if len(translation) > self.e_int.shape[1]:
@@ -1636,23 +1727,31 @@ class Interface():
             hAx.set_xlabel(lbl["x"])
             hAx.set_ylabel(lbl["y"])
         else:
-            hAx = plt.subplot(row, col, N, projection = "3d")
+            hAx = plt.subplot(row, col, N)
 
             if np.ndim(data["x"]) == 1: data["x"] = data["x"][:, None]
             if np.ndim(data["y"]) == 1: data["y"] = data["y"][:, None]
             if np.ndim(data["z"]) == 1: data["z"] = data["z"][:, None]
 
+            cm = kwarg.pop("colormap", "viridis")
+            cmap = plt.cm.get_cmap(cm)
+            vmin = kwarg.pop("vmin", np.min(data["z"]))
+            vmax = kwarg.pop("vmax", np.max(data["z"]))
+            c = kwarg.pop("color", 'b')
+
             j,k,l = (0, 0, 0)
             for i, t in enumerate(translation):
-                hAx.scatter(data["x"][:, j], data["y"][:, k], data["z"][:, l], **kwarg)
+            
+                hS = hAx.scatter(data["x"][:, j], data["y"][:, k], c = data["z"][:, l],\
+                                 vmin = vmin, vmax = vmax, cmap = cmap, **kwarg)
 
                 if np.shape(data["x"])[1] > 1: j += 1
                 if np.shape(data["y"])[1] > 1: k += 1
                 if np.shape(data["z"])[1] > 1: l += 1
-                    
+                
+            plt.colorbar(hS, label = lbl["z"])
             hAx.set_xlabel(lbl["x"])
             hAx.set_ylabel(lbl["y"])
-            hAx.set_ylabel(lbl["z"])
 
         if handle: return
 
@@ -1749,11 +1848,7 @@ class Interface():
 
         if verbose > 0:
             string = "Data written to Excel file: %s" % filename
-            print("\n" + "=" * len(string))
-            print("%s" % string)
-            print("=" * len(string) + "\n")
-
-
+            ut.infoPrint(string)
 
 
 
