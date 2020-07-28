@@ -67,6 +67,7 @@ to the atoms / area in the unstrained case, above 1 denser than usual below 1 le
 Write i.plotProperties? to see supported plot options.
 
 someValues = np.random.random(500)
+
 i.plotProperty(x = "angle", y  = "other", other = someValues, z = "density", idx = range(500), colormap = "plasma")
 
 Plots angle against the custom set of values contained in the someValues array and supplied with the other keyword with the density once again colorcoded to the colormap. This is to allow any specially calculated property to be easily ploted against other paramerters. The length of the custom data must match the length of the idx parater or the total length of the interface dataset if idx is omitted.
