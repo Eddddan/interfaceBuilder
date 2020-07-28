@@ -1574,6 +1574,7 @@ class Interface():
         w_sep_strain      = Work of separation (strained ref), for specified translation(s)
         w_sep_diff        = Difference in w_sep between tranlsations
         w_sep_strain_diff = Difference in w_sep_strain between translations
+        other             = Plot a custom numpy array of values specified with keyword other. Length must match idx.
 
         plot x vs. y vs. z (optional) with z data values displayed in a colormap.
         """
@@ -1648,8 +1649,8 @@ class Interface():
                 atoms = self.atoms[idx] - area * (self.pos_1.shape[0] / base_area_1)
                 norm_density = self.pos_2.shape[0] / (base_area_2 * self.base_2[2, 2])
 
-                data[key] = atoms / (vol * norm_density)
-                lbl[key] = "Atom density, ($Atoms/\AA^2$)"
+                data[key] = (vol * norm_density) / atoms
+                lbl[key] = "Atom density, ($Atoms/(\AA^2*standard)$)"
 
             elif data[key].lower() == "e_int":
                 if len(translation) > self.e_int.shape[1]:
