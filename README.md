@@ -14,7 +14,7 @@ This creates two structure files (a,b) containing the geometric information abou
 the a cell (0001-WC) and the b cell (100-W). Load_from_input is just a shortcut 
 to load the predefined cell information contained in the inputs file. Complete
 reading of input-files from usefull formats e.g. VASP/LAMMPS/EON is done be specifying
-structure.Structure(load_from_file = <filename>, format = <format>)
+structure.Structure(load_from_file = filename, format = format)
 
 i = interface.Interface(structure_a = a, structure_b = b)
 
@@ -69,4 +69,4 @@ Write i.plotProperties? to see supported plot options.
 someValues = np.random.random(500)
 i.plotProperty(x = "angle", y  = "other", other = someValues, z = "density", idx = range(500), colormap = "plasma")
 
-Plots angle against the custom set of values contained in the <someValues> array and supplied with the <other> keyword with the density once again colorcoded to the colormap. This is to allow any specially calculated property to be easily ploted against other paramerters. The length of the custom data must match the length of the idx parater or the total length of the interface dataset if idx is omitted.
+Plots angle against the custom set of values contained in the someValues array and supplied with the other keyword with the density once again colorcoded to the colormap. This is to allow any specially calculated property to be easily ploted against other paramerters. The length of the custom data must match the length of the idx parater or the total length of the interface dataset if idx is omitted.
