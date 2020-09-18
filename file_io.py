@@ -66,6 +66,67 @@ def mat2LammpsBox(mat, prec = 10):
     return box
 
 
+def writeKPTS(cell, density = 2, N1 = None, N2 = None, N3 = None, version = "Gamma",\
+              S1 = 0, S2 = 0, S3 = 0, verbose = 1):
+    """Function to write a vasp KPOINTS file based on cell parameters"""
+
+
+    """Calculate the x-y area of the cell"""
+    area = np.linalg.norm(np.cross(cell[:, 0], cell[:, 1]))
+
+    """Forms a vasp reciprical cell, without 2*pi and not Transposed 
+       vs. the deafult cartesian cell used in the structure class"""
+    r_cell = np.linalg.inv(cell)
+    r_area = np.linalg.norm(np.cross(r_cell[0, :], r_cell[1, :]))
+
+    total_kpts = np.ceil(r_area * density)
+
+    """The rows make up the lattice vectors"""
+    r_norm = np.linalg.norm(r_cell, axis = 1)
+
+    if version.lower()[0] == "g":
+        cmp = 0
+    elif version.lower()[0] == "m":
+        cmp = 1
+
+    if N1 is None:
+        N1 = np.ceil(r_norm[0] * density)
+        if N1 % 2 == cmp:
+            N1 += 1
+    
+    if N2 is None:
+        N2 = np.ceil(r_norm[1] * density)
+        if N2 % 2 == cmp:
+            N2 += 1
+
+    if N3 is None:
+        N3 = np.ceil(r_norm[2] * density)
+        if N3 % 2 == cmp:
+            N3 += 1
+
+    if verbose > 0:
+        string = "Writing kpts as %s: %i %i %i" % (version, N1, N2, N3)
+        ut.infoPrint(string)
+
+    with open("KPOINTS", 'w') as k:
+
+        """Comment line"""
+        k.write("Generated using file_io\n")
+        
+        """Auto generation"""
+        k.write("%i\n" % 0)
+
+        """Type"""
+        k.write("%s\n" % version)
+
+        """Write KPOINTS"""
+        k.write("%2i %2i %2i\n" % (N1, N2, N3))
+
+        """Write shift"""
+        k.write("%2i %2i %2i\n" % (S1, S2, S3))
+
+
+
 def readEON(filename, verbose = 1):
     """Load EON geometry file"""
 
@@ -310,25 +371,28 @@ def readVASP(filename, verbose = 1):
             coordinates = "c"
 
         for i, line in enumerate(f):
-            pos[i, :] = [np.float(j) for j in line.split()[:3]]
+            l = line.split()
+            pos[i, :] = [np.float(j) for j in l[:3]]
             if selDyn:
-                frozen[i, :] = [1 if j.lower() == "t" else 0 for j in line.split[3:]]
+                frozen[i, :] = [0 if j.lower() == "t" else 1 for j in l[3:]]
             if i == (nr_tot - 1):
                 break
 
         if selDyn:
             frozen = frozen.astype(bool)
+        else:
+            frozen = np.zeros((nr_tot, 3), dtype = bool)
 
         if coordinates == "d":
             pos = np.matmul(mat, pos.T).T
 
         idx = np.arange(nr_tot)
 
-        return mat, pos, t, idx, mass
+        return mat, pos, t, idx, mass, frozen
 
 
 
-def writeVASP(filename, atoms, direct = False, verbose = 1):
+def writeVASP(filename, atoms, direct = False, sd = False, verbose = 1):
     """Write VASP POSCAR file"""
 
     if verbose > 0:
@@ -350,9 +414,9 @@ def writeVASP(filename, atoms, direct = False, verbose = 1):
         pos = atoms.pos
         coordinates = "Cartesian"
 
-    frozen = np.chararray(atoms.pos.shape, itemsize = 1)
-    frozen[:] = "F"
-    frozen[atoms.frozen] = "T"
+    moving = np.chararray(atoms.pos.shape, itemsize = 1)
+    moving[:] = "T"
+    moving[atoms.frozen] = "F"
 
     with open(filename, "w") as f:
         
@@ -373,13 +437,18 @@ def writeVASP(filename, atoms, direct = False, verbose = 1):
             f.write("  %3i" % nr)
         f.write("\n")
 
-        f.write("Selective Dynamics\n")
+        if sd:
+            f.write("Selective Dynamics\n")
+
         f.write("%s\n" % coordinates)
         for i, p in enumerate(pos):
-            f.write("  %11.6f  %11.6f  %11.6f  %s  %s  %s\n"\
-                        % (p[0], p[1], p[2], frozen[i, 0].decode("utf-8"),\
-                           frozen[i, 1].decode("utf-8"), frozen[i, 2].decode("utf-8")))
-
+            if sd:
+                f.write("  %11.6f  %11.6f  %11.6f  %s  %s  %s\n"\
+                        % (p[0], p[1], p[2], moving[i, 0].decode("utf-8"),\
+                        moving[i, 1].decode("utf-8"), moving[i, 2].decode("utf-8")))
+            else:
+                f.write("  %11.6f  %11.6f  %11.6f\n"\
+                        % (p[0], p[1], p[2]))
 
 def readXYZ(filename, verbose = 1):
     """Load XYZ geometry file"""
@@ -417,6 +486,42 @@ def writeXYZ(filename, atoms, verbose = 1):
 
 
 
+def readOUTCAR(filename, state = "all", verbose = 1, **kwargs):
+    """Function for reading and striping information from a VASP OUTCAR file
+
+       filename = str, Name of the OUTCAR file to be read, default = OUTCAR
+
+       state = str(all/first/last), Read all steps, first step or last step, default = all
+
+       kwargs = {<name>: bool}, parameters to read, default = all True. Output as None if False
+       ------
+       info  = read misc info
+       force = read force
+       ewe   = read energy without entropy
+       esz   = read energy sigma --> 0
+       pos   = read positions
+       cell  = read cell
+       dt    = time steps
+       time  = LOOP+ times
+       ------
+
+    """
+
+    print("Not Done!!!")
+
+    """Dict to hold various options"""
+    out = {'info': None, 'force': None, 'ewe': None, 'esz': None, 'pos': None,\
+           'cell': None, 'time': None, 'dt': None}
+
+    """Open file and read it line by line"""
+    #with open(filename, 'r') as f:
+    #    for line in f:
+            
+            
+
+
+
+
 def readData(filename, format = "eon", verbose = 1):
     """Entry point for loading geometry files"""
 
@@ -429,7 +534,7 @@ def readData(filename, format = "eon", verbose = 1):
         return mat, pos, t, idx, mass
 
     elif "vasp".startswith(format.lower()):
-        mat, pos, t, idx, mass = readVASP(filename, verbose = verbose)
+        mat, pos, t, idx, mass, frozen = readVASP(filename, verbose = verbose)
         return mat, pos, t, idx, mass
 
     elif "xyz".startswith(format.lower()):
@@ -441,7 +546,7 @@ def readData(filename, format = "eon", verbose = 1):
         sys.exit()
 
 
-def writeData(filename, atoms, format = "eon", verbose = 1):
+def writeData(filename, atoms, format = "eon", sd = False, verbose = 1):
     """Entry point for loading geometry files"""
 
     if "eon".startswith(format.lower()):
@@ -451,7 +556,7 @@ def writeData(filename, atoms, format = "eon", verbose = 1):
         writeLAMMPS(filename, atoms, verbose = verbose)
 
     elif "vasp".startswith(format.lower()):
-        writeVASP(filename, atoms, verbose = verbose)
+        writeVASP(filename, atoms, sd = sd, verbose = verbose)
 
     elif "xyz".startswith(format.lower()):
         writeXYZ(filename, atoms, verbose = verbose)

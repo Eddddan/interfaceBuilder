@@ -31,14 +31,17 @@ class Interface():
         self.ang = None
         self.translations = None
 
-        """E_i/A - E_s1/A - E_s2/A (Interface - slabs)"""
+        """E_i/A - E_s1/A - E_s2/A (Interface - slabs (unstrained reference))"""
         self.w_sep = None
+        self.w_sep_vasp = None
 
-        """E_i/A - E_s1/A - E_s2/A (Interface - slabs)"""
+        """E_i/A - E_s1/A - E_s2/A (Interface - slabs (strained reference))"""
         self.w_sep_strain = None
+        self.w_sep_strain_vasp = None
 
         """E_i/A - E_b1/A - E_b2/A (Interface - bulk)"""
         self.e_int = None
+        self.e_int_vasp = None
 
         self.base_1 = structure_a.cell
         self.base_2 = structure_b.cell
@@ -53,7 +56,10 @@ class Interface():
 
 
     def deleteInterfaces(self, keep, verbose = 1):
-        """Function for removing interfaces"""
+        """Function for removing interfaces.
+
+           keep = np.array() bool/index of interfaces to keep
+        """
 
         self.cell_1 = self.cell_1[keep]
         self.cell_2 = self.cell_2[keep]
@@ -70,6 +76,9 @@ class Interface():
         self.e_int = self.e_int[keep]
         self.w_sep = self.w_sep[keep]
         self.w_sep_strain = self.w_sep_strain[keep]
+        self.e_int_vasp = self.e_int_vasp[keep]
+        self.w_sep_vasp = self.w_sep_vasp[keep]
+        self.w_sep_strain_vasp = self.w_sep_strain_vasp[keep]
 
         if verbose > 0:
             string = "Interfaces deleted: %i | Interfaces remaining: %i"\
@@ -90,10 +99,10 @@ class Interface():
         """Function for sorting the interfaces"""
 
         sort = sort.lower()
-        sortable_properties = ["atoms",   "angle",  "area",\
-                               "eps_11",  "eps_22", "eps_12",\
-                               "eps_mas", "e_int", "w_sep",\
-                               "base_angle_1", "base_angle_2"]
+        sortable_properties = ["atoms",   "angle",  "area", "e_int_vasp",\
+                               "eps_11",  "eps_22", "eps_12", "w_sep_vasp",\
+                               "eps_mas", "e_int", "w_sep", "w_sep_strain",\
+                               "base_angle_1", "base_angle_2", "w_sep_strain_vasp"]
 
         if sort == "atoms":
             si = np.argsort(self.atoms)
@@ -108,6 +117,15 @@ class Interface():
         elif sort == "w_sep_strain":
             """Opt int corresponding to chosen translation (0-based as translation)"""
             si = np.argsort(self.w_sep_strain[opt])
+        elif sort == "e_int":
+            """Opt int corresponding to chosen translation (0-based as translation)"""
+            si = np.argsort(self.e_int_vasp[opt])
+        elif sort == "w_sep_vasp":
+            """Opt int corresponding to chosen translation (0-based as translation)"""
+            si = np.argsort(self.w_sep_vasp[opt])
+        elif sort == "w_sep_strain_vasp":
+            """Opt int corresponding to chosen translation (0-based as translation)"""
+            si = np.argsort(self.w_sep_strain_vasp[opt])
         elif sort == "eps_11":
             si = np.argsort(np.abs(self.eps_11))
         elif sort == "eps_22":
@@ -154,6 +172,11 @@ class Interface():
         self.w_sep = self.w_sep[index]
         self.w_sep_strain = self.w_sep_strain[index]
 
+        self.e_int_vasp = self.e_int_vasp[index]
+        self.w_sep_vasp = self.w_sep_vasp[index]
+        self.w_sep_strain_vasp = self.w_sep_strain_vasp[index]
+
+
 
     def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1):
         """Get the index of interfaces with strains within specified tolerences"""
@@ -171,6 +194,7 @@ class Interface():
             ut.infoPrint(string)
 
         return index
+
 
 
     def removeAtomStrainDuplicates(self, tol_mag = 7, verbose = 1):
@@ -413,7 +437,8 @@ class Interface():
         return A, B
 
 
-    def setEint(self, idx, e_int, translation = 0, verbose = 1):
+
+    def setEint(self, idx, e_int, translation = 0, version = "lammps", verbose = 1):
         """Function for setting the interfacial energies of different translations
 
            idx - int representing interface index, 0-based.
@@ -422,11 +447,18 @@ class Interface():
 
            e_int - float representing the energy value"""
         
-        s = self.e_int.shape
+        if version.lower() == "lammps":
+            s = self.e_int.shape
+        elif version.lower() == "vasp":
+            s = self.e_int_vasp.shape
         t = translation
 
         if (t + 1) > s[1]:
-            self.e_int = np.concatenate((self.e_int, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+            if version.lower() == "lammps":
+                self.e_int = np.concatenate((self.e_int, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+            elif version.lower() == "vasp":
+                self.e_int_vasp = np.concatenate((self.e_int_vasp, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+
             if verbose > 0:
                 string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], (t + 1))
@@ -437,10 +469,14 @@ class Interface():
                      % (e_int, t, idx)
             ut.infoPrint(string)
 
-        self.e_int[idx, t] = e_int
+        if version.lower() == "lammps":
+            self.e_int[idx, t] = e_int
+        elif version.lower() == "vasp":
+            self.e_int_vasp[idx, t] = e_int
 
 
-    def setEintArray(self, idx, translation, e_int, verbose = 1):
+
+    def setEintArray(self, idx, translation, e_int, verbose = 1, version = "lammps"):
         """Function for setting the interfacial energies from an array of values
 
            idx - 1d vector of interface index, 0 based.
@@ -457,11 +493,18 @@ class Interface():
             print("<idx> parameter must be a np.ndarray, list or range")
             return
         
-        s = self.e_int.shape
+        if version.lower() == "lammps":
+            s = self.e_int.shape
+        elif version.lower() == "vasp":
+            s = self.e_int_vasp.shape
         t = translation
 
         if np.max(t) > s[1]:
-            self.e_int = np.concatenate((self.e_int, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+            if version.lower() == "lammps":
+                self.e_int = np.concatenate((self.e_int, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+            elif version.lower() == "vasp":
+                self.e_int_vasp = np.concatenate((self.e_int_vasp, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+
             if verbose > 0:
                 string = "Extending e_int from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], np.max(t))
@@ -469,10 +512,14 @@ class Interface():
 
         """t 0-based!"""
         for i, col in enumerate(t):
-            self.e_int[idx, col] = e_int[:, i]
+            if version.lower() == "lammps":
+                self.e_int[idx, col] = e_int[:, i]
+            elif version.lower() == "vasp":
+                self.e_int_vasp[idx, col] = e_int[:, i]
 
 
-    def setWsep(self, idx, w_sep, translation = 0, verbose = 1):
+
+    def setWsep(self, idx, w_sep, translation = 0, version = "lammps", verbose = 1):
         """Function for setting the work of sepparation of different translations
 
            idx - int representing interface index, 0-based.
@@ -481,11 +528,17 @@ class Interface():
 
            w_sep - float representing the energy value"""
         
-        s = self.w_sep.shape
+        if version.lower() == "lammps":
+            s = self.w_sep.shape
+        elif version.lower() == "vasp":
+            s = self.w_sep_vasp.shape
         t = translation
 
         if (t + 1) > s[1]:
-            self.w_sep = np.concatenate((self.w_sep, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+            if version.lower() == "lammps":
+                self.w_sep = np.concatenate((self.w_sep, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+            elif version.lower() == "vasp":
+                self.w_sep_vasp = np.concatenate((self.w_sep_vasp, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
             if verbose > 0:
                 string = "Extending w_sep from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], (t + 1))
@@ -496,10 +549,14 @@ class Interface():
                      % (w_sep, t, idx)
             ut.infoPrint(string)
 
-        self.w_sep[idx, t] = w_sep
+        if version.lower() == "lammps":
+            self.w_sep[idx, t] = w_sep
+        elif version.lower() == "vasp":
+            self.w_sep_vasp[idx, t] = w_sep
 
 
-    def setWsepArray(self, idx, translation, w_sep, verbose = 1):
+
+    def setWsepArray(self, idx, translation, w_sep, version = "lammps", verbose = 1):
         """Function for setting the work of sepparation from an array of values
 
            idx - 1d vector of interface index, 0 based.
@@ -516,11 +573,17 @@ class Interface():
             print("<idx> parameter must be a np.ndarray, list or range")
             return
         
-        s = self.w_sep.shape
+        if version.lower() == "lammps":
+            s = self.w_sep.shape
+        elif version.lower() == "vasp":
+            s = self.w_sep_vasp.shape
         t = translation
 
         if np.max(t) > s[1]:
-            self.w_sep = np.concatenate((self.w_sep, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+            if version.lower() == "lammps":
+                self.w_sep = np.concatenate((self.w_sep, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+            elif version.lower() == "vasp":
+                self.w_sep_vasp = np.concatenate((self.w_sep_vasp, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
             if verbose > 0:
                 string = "Extending w_sep from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], np.max(t))
@@ -528,10 +591,14 @@ class Interface():
 
         """t 0-based!"""
         for i, col in enumerate(t):
-            self.w_sep[idx, col] = w_sep[:, i]
+            if version.lower() == "lammps":
+                self.w_sep[idx, col] = w_sep[:, i]
+            elif version.lower() == "vasp":
+                self.w_sep_vasp[idx, col] = w_sep[:, i]
 
 
-    def setWsepStrain(self, idx, w_sep_strain, translation = 0, verbose = 1):
+
+    def setWsepStrain(self, idx, w_sep_strain, translation = 0, version = "lammps", verbose = 1):
         """Function for setting the work of sepparation (strained ref) of different translations
 
            idx - int representing interface index, 0-based.
@@ -540,11 +607,19 @@ class Interface():
 
            w_sep_strain - float representing the energy value"""
         
-        s = self.w_sep_strain.shape
+        if version.lower() == "lammps":
+            s = self.w_sep_strain.shape
+        elif version.lower() == "vasp":
+            s = self.w_sep_strain_vasp.shape
         t = translation
 
         if (t + 1) > s[1]:
-            self.w_sep_strain = np.concatenate((self.w_sep_strain, np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+            if version.lower() == "lammps":
+                self.w_sep_strain = np.concatenate((self.w_sep_strain,\
+                                                    np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
+            elif version.lower() == "vasp":
+                self.w_sep_strain_vasp = np.concatenate((self.w_sep_strain_vasp,\
+                                                         np.zeros((s[0], (t + 1) - s[1]))), axis = 1)
             if verbose > 0:
                 string = "Extending w_sep_strain from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], (t + 1))
@@ -555,10 +630,14 @@ class Interface():
                      % (w_sep, t, idx)
             ut.infoPrint(string)
 
-        self.w_sep_strain[idx, t] = w_sep_strain
+        if version.lower() == "lammps":
+            self.w_sep_strain[idx, t] = w_sep_strain
+        elif version.lower() == "vasp":
+            self.w_sep_strain_vasp[idx, t] = w_sep_strain
 
 
-    def setWsepStrainArray(self, idx, translation, w_sep_strain, verbose = 1):
+
+    def setWsepStrainArray(self, idx, translation, w_sep_strain, version = "lammps", verbose = 1):
         """Function for setting the work of sepparation from an array of values
 
            idx - 1d vector of interface index, 0 based.
@@ -575,11 +654,19 @@ class Interface():
             print("<idx> parameter must be a np.ndarray, list or range")
             return
         
-        s = self.w_sep_strain.shape
+        if version.lower() == "lammps":
+            s = self.w_sep_strain.shape
+        elif version.lower() == "vasp":
+            s = self.w_sep_strain_vasp.shape
         t = translation
 
         if np.max(t) > s[1]:
-            self.w_sep_strain = np.concatenate((self.w_sep_strain, np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+            if version.lower() == "lammps":
+                self.w_sep_strain = np.concatenate((self.w_sep_strain,\
+                                                    np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
+            elif version.lower() == "vasp":
+                self.w_sep_strain_vasp = np.concatenate((self.w_sep_strain_vasp,\
+                                                         np.zeros((s[0], (np.max(t) + 1) - s[1]))), axis = 1)
             if verbose > 0:
                 string = "Extending w_sep_strain from shape (%i,%i) to (%i,%i)"\
                          % (s[0], s[1], s[0], np.max(t))
@@ -587,7 +674,10 @@ class Interface():
 
         """t 0-based!"""
         for i, col in enumerate(t):
-            self.w_sep_strain[idx, col] = w_sep_strain[:, i]
+            if version.lower() == "lammps":
+                self.w_sep_strain[idx, col] = w_sep_strain[:, i]
+            elif version.lower() == "vasp":
+                self.w_sep_strain_vasp[idx, col] = w_sep_strain_vasp[:, i]
 
 
 
@@ -602,6 +692,7 @@ class Interface():
             return np.abs(np.linalg.det(self.cell_2[idx, :, :]))
 
 
+
     def getArea(self, idx, cell = 1):
         """Function for getting the area of the specified interface and surface"""
 
@@ -609,6 +700,7 @@ class Interface():
             return np.abs(np.cross(self.cell_1[idx, :, 0], self.cell_1[idx, :, 1]))
         elif cell == 2:
             return np.abs(np.cross(self.cell_2[idx, :, 0], self.cell_2[idx, :, 1]))
+
 
 
     def getCellLengths(self, idx, cell = 1):
@@ -623,6 +715,7 @@ class Interface():
             norms = np.linalg.norm(self.cell_1[idx, :, :], axis = 1)
 
         return norms
+
 
 
     def getBaseAngle(self, idx, cell = 1, rad = True):
@@ -640,6 +733,7 @@ class Interface():
             ang = np.rad2deg(ang)
 
         return ang
+
 
 
     def getBaseAngles(self, cell, idx = None, rad = True):
@@ -664,6 +758,7 @@ class Interface():
         return ang
 
 
+
     def getBaseLength(self, idx, cell = 1):
         """Function for getting the cell lengths of the specified interface and surface"""
 
@@ -673,6 +768,7 @@ class Interface():
             l = np.linalg.norm(self.cell_2[idx, :, :], axis = 0)
 
         return l
+
 
 
     def getBaseLengths(self, cell):
@@ -857,6 +953,9 @@ class Interface():
         self.e_int = np.zeros((self.atoms.shape[0], 1))
         self.w_sep = np.zeros((self.atoms.shape[0], 1))
         self.w_sep_strain = np.zeros((self.atoms.shape[0], 1))
+        self.e_int_vasp = np.zeros((self.atoms.shape[0], 1))
+        self.w_sep_vasp = np.zeros((self.atoms.shape[0], 1))
+        self.w_sep_strain_vasp = np.zeros((self.atoms.shape[0], 1))
 
         """Further removal of interfaces based on specified critera follows below"""
 
@@ -979,9 +1078,9 @@ class Interface():
         if sort is not None:
             self.sortInterface(sort = sort, rev = rev)
 
-        header1 = "%-2s%6s | %5s | %3s %-9s | %5s | %5s | %-6s | %-5s | %4s %-25s | %3s %-11s | %3s %-11s "\
-                  % ("", "Index", "Rot", "", "Length", "Angle", "Angle", "Area", "Atoms", "", "Strain",\
-                     "", "Lattice A", "", "Lattice B")
+        header1 = "%-2s%6s | %5s | %3s %-9s | %5s | %5s |  %-5s | %-5s | %4s %-25s | %3s %-11s | %3s %-11s "\
+                  % ("", "Index", "Rot", "", "Length", "Angle", "Angle", "Area", "Atoms", "", "Epsilon (*100)",\
+                     "", "Lattice 1", "", "Lattice 2")
         header2 = "%-2s%6s | %5s | %6s, %5s | %5s | %5s | %6s | %5s | %7s,%7s,%7s,%6s | "\
                   "%3s,%3s,%3s,%3s | %3s,%3s,%3s,%3s"\
                   % ("", "i", "b0/x", "a1", "a2", "b1/b2", "a1/a2", "Ang^2", "Nr", "11", "22", "12", "mas",\
@@ -1067,7 +1166,7 @@ class Interface():
         hAx = plt.gca()
         hAx.set_xscale("log")
         hAx.set_yscale("log")
-        hAx.set_xlabel("Strain, (%)")
+        hAx.set_xlabel("$\epsilon_{mas}$, (%)")
         hAx.set_ylabel("Atoms")
 
         hAx = plt.subplot(2, 2, 4)
@@ -1100,20 +1199,30 @@ class Interface():
         for i in range(self.e_int.shape[1]):
             if i == 0:
                 string3 = "$E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
-                string4 = "$W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
-                string5 = "$WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
             elif (i % 4) == 0:
                 string3 += "\n$E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
-                string4 += "\n$W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
-                string5 += "\n$WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
             else:
                 string3 += ", $E_{T%i}$: %6.2f" % (i, self.e_int[idx, i])
-                string4 += ", $W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
-                string5 += ", $WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
         string3 += "\n"
+
+        for i in range(self.w_sep.shape[1]):
+            if i == 0:
+                string4 = "$W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
+            elif (i % 4) == 0:
+                string4 += "\n$W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
+            else:
+                string4 += ", $W_{T%i}$: %6.2f" % (i, self.w_sep[idx, i])
         string4 += "\n"
+
+        for i in range(self.w_sep_strain.shape[1]):
+            if i == 0:
+                string5 = "$WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
+            elif (i % 4) == 0:
+                string5 += "\n$WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
+            else:
+                string5 += ", $WS_{T%i}$: %6.2f" % (i, self.w_sep_strain[idx, i])
                 
-        hAx.text(1.5, 5, string1 + string2 + string3 + string4, ha = "left", va = "center",\
+        hAx.text(1.5, 5, string1 + string2 + string3 + string4 + string5, ha = "left", va = "center",\
                  fontsize = "small", bbox=dict(facecolor = (0, 0, 1, 0.1), edgecolor = (0, 0, 1, 0.5),\
                  lw = 1))
 
@@ -1331,31 +1440,34 @@ class Interface():
         if not handle: hFig = plt.figure()
         hAx = plt.subplot(row, col, N)
 
+        """Defaults"""
+        cm = kwarg.pop("cmap", "plasma")
+        
         if eps == "eps_11":
-            hb = hAx.hexbin(np.abs(self.eps_11[idx]) * 100, self.atoms[idx],\
+            hb = hAx.hexbin(np.abs(self.eps_11[idx]) * 100, self.atoms[idx], cmap = cm,\
                             xscale = "log", yscale = "log", mincnt = 1, **kwarg)
-            x_label = "Strain $abs(\epsilon_{11})$ (%)"
-
-            if verbose > 0: print("Showing absolute value of %s" % (eps))
+            x_label = "Strain $abs(\epsilon_{11})$, (%)"
 
         elif eps == "eps_22":
-            hb = hAx.hexbin(np.abs(self.eps_22[idx]) * 100, self.atoms[idx],\
+            hb = hAx.hexbin(np.abs(self.eps_22[idx]) * 100, self.atoms[idx], cmap = cm,\
                             xscale = "log", yscale = "log", mincnt = 1, **kwarg)
-            x_label = "Strain $abs(\epsilon_{22})$ (%)"
+            x_label = "Strain $abs(\epsilon_{22})$, (%)"
 
-            if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps == "eps_12":
-            hb = hAx.hexbin(np.abs(self.eps_12[idx]) * 100, self.atoms[idx],\
+            hb = hAx.hexbin(np.abs(self.eps_12[idx]) * 100, self.atoms[idx], cmap = cm,\
                             xscale = "log", yscale = "log", mincnt = 1, **kwarg)
-            x_label = "Strain $abs(\epsilon_{12})$ (%)"
+            x_label = "Strain $abs(\epsilon_{12})$, (%)"
 
-            if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
-            hb = hAx.hexbin(self.eps_mas[idx] * 100, self.atoms[idx],\
+            hb = hAx.hexbin(self.eps_mas[idx] * 100, self.atoms[idx], cmap = cm,\
                             xscale = "log", yscale = "log", mincnt = 1, **kwarg)
-            x_label = "Strain $\epsilon_{mas}$ (%)"
+            x_label = "Strain $\epsilon_{mas}$, (%)"
 
         if handle: return
+
+        if verbose > 0 and eps != "eps_mas":
+            string = "Showing absolute value of %s" % (eps)
+            ut.infoPrint(string)
 
         hAx.set_xlabel(x_label)
         hAx.set_ylabel("Atoms")
@@ -1396,18 +1508,18 @@ class Interface():
 
         if eps.lower() == "eps_11":
             strain = np.abs(self.eps_11)[idx]
-            x_label = "$|\epsilon_{11}|$ (%)"
+            x_label = "$|\epsilon_{11}|$, (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps.lower() == "eps_22":
             strain = np.abs(self.eps_22)[idx]
-            x_label = "$|\epsilon_{22}|$ (%)"
+            x_label = "$|\epsilon_{22}|$, (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         elif eps.lower() == "eps_12":
             strain = np.abs(self.eps_12)[idx]
-            x_label = "$|\epsilon_{12}|$ (%)"
+            x_label = "$|\epsilon_{12}|$, (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
-            x_label = "$(\epsilon_{11}+\epsilon_{22}+\epsilon_{12})/3$ (%)"
+            x_label = "$(\epsilon_{11}+\epsilon_{22}+\epsilon_{12})/3$, (%)"
             strain = self.eps_mas[idx]
 
         if verbose > 0:
@@ -1474,11 +1586,9 @@ class Interface():
         
         if handle: return
 
-        print(lines)
-
         an = hAx.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
                           bbox=dict(boxstyle="round", fc="w"),
-                          arrowprops=dict(arrowstyle="->"))
+                          arrowprops=dict(arrowstyle="->"), fontsize = "small")
         an.set_visible(False)
 
 
@@ -1509,7 +1619,7 @@ class Interface():
             
             text = "%.3f, %i, (%s)" % (xVal, yVal, match)
             an.set_text(text)
-            an.get_bbox_patch().set_alpha(0.92)
+            an.get_bbox_patch().set_alpha(1)
 
 
         def click(event):
@@ -1549,6 +1659,12 @@ class Interface():
             plt.show()
 
 
+            
+    def getIndexOf(self, property = "eps_mas"):
+        print("Function to grab index using criteria")
+        print("To be built")
+
+
 
     def plotProperty(self, x, y, z = None, idx = None, col = 1, row = 1, N = 1, 
                      save = False, dpi = 100, format = "pdf", verbose = 1, handle = False,\
@@ -1557,24 +1673,34 @@ class Interface():
 
         Available properties are
         ------------------------
-        idx               = Index of current sorting
-        eps_11            = Eps_11
-        eps_22            = Eps_22
-        eps_12            = Eps_12
-        eps_mas           = Eps_mas
-        atoms             = Nr of atoms
-        angle             = Angle between interface cell vectors
-        rotation          = Initial rotation at creation
-        norm              = Sqrt(eps_11^2+eps_22^2+eps_12^2)
-        a_1               = Length of interface cell vector a_1
-        a_2               = Length of interface cell vector a_2
-        area              = Area of the interface
-        e_int             = Interfacial energy, for specified translation(s)
-        w_sep             = Work of separation, for specified translation(s)
-        w_sep_strain      = Work of separation (strained ref), for specified translation(s)
-        w_sep_diff        = Difference in w_sep between tranlsations
-        w_sep_strain_diff = Difference in w_sep_strain between translations
-        other             = Plot a custom numpy array of values specified with keyword other. Length must match idx.
+        idx        = Index of current sorting
+        eps_11     = Eps_11
+        eps_22     = Eps_22
+        eps_12     = Eps_12
+        eps_mas    = Eps_mas
+        eps_max    = max(eps_11, eps_22, eps_12)
+        atoms      = Nr of atoms
+        angle      = Angle between interface cell vectors
+        rotation   = Initial rotation at creation
+        norm       = Sqrt(eps_11^2+eps_22^2+eps_12^2)
+        trace      = |eps_11|+|eps_22|
+        norm_trace = Sqrt(eps_11^2+eps_22^2)
+        a_1        = Length of interface cell vector a_1
+        a_2        = Length of interface cell vector a_2
+        area       = Area of the interface
+        other      = Plot a custom array of values specified with keyword other. Length must match idx.
+        e_int            = Interfacial energy, for specified translation(s)
+        e_int_vasp       = Interfacial energy (vasp), for specified translation(s)
+        e_int_diff       = Difference in Interfacial energy between translations
+        e_int_diff_vasp  = Difference in Interfacial energy (vasp) between translations
+        w_sep            = Work of separation, for specified translation(s)
+        w_sep_vasp       = Work of separation (vasp), for specified translation(s)
+        w_sep_strain           = Work of separation (strained ref), for specified translation(s)
+        w_sep_strain_vasp      = Work of separation (strained ref) (vasp), for specified translation(s)
+        w_sep_diff             = Difference in w_sep between tranlsations
+        w_sep_diff_vasp        = Difference in w_sep (vasp) between tranlsations
+        w_sep_strain_diff      = Difference in w_sep_strain between translations
+        w_sep_strain_diff_vasp = Difference in w_sep_strain (vasp) between translations
 
         plot x vs. y vs. z (optional) with z data values displayed in a colormap.
         """
@@ -1612,6 +1738,19 @@ class Interface():
                 data[key] = self.eps_mas[idx]
                 lbl[key] = "$\epsilon_{mas}$"
 
+            elif data[key].lower() == "eps_max":
+                max = np.max(np.vstack((self.eps_11[idx],\
+                                        self.eps_22[idx],\
+                                        self.eps_12[idx])), axis = 0)
+                min = np.min(np.vstack((self.eps_11[idx],\
+                                        self.eps_22[idx],\
+                                        self.eps_12[idx])), axis = 0)
+
+                """Check if abs(min) is bigger than max, (to preserve sign)"""
+                max[np.abs(min) > np.abs(max)] = min[np.abs(min) > np.abs(max)]
+                data[key] = max
+                lbl[key] = "Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})$"
+
             elif data[key].lower() == "atoms":
                 data[key] = self.atoms[idx]
                 lbl[key] = "Atoms"
@@ -1623,6 +1762,14 @@ class Interface():
             elif data[key].lower() == "norm":
                 data[key] = np.sqrt(self.eps_11[idx]**2 + self.eps_22[idx]**2 + self.eps_12[idx]**2)
                 lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$"
+
+            elif data[key].lower() == "norm_trace":
+                data[key] = np.sqrt(self.eps_11[idx]**2 + self.eps_22[idx]**2)
+                lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2}$"
+
+            elif data[key].lower() == "trace":
+                data[key] = np.abs(self.eps_11[idx]) + np.abs(self.eps_22[idx])
+                lbl[key] = "$|\epsilon_{11}|+|\epsilon_{22}|$"
 
             elif data[key].lower() == "rotation":
                 data[key] = self.ang[idx]
@@ -1649,7 +1796,7 @@ class Interface():
                 atoms = self.atoms[idx] - area * (self.pos_1.shape[0] / base_area_1)
                 norm_density = self.pos_2.shape[0] / (base_area_2 * self.base_2[2, 2])
 
-                data[key] = (vol * norm_density) / atoms
+                data[key] = atoms / (vol * norm_density)
                 lbl[key] = "Atom density, ($Atoms/(\AA^2*standard)$)"
 
             elif data[key].lower() == "e_int":
@@ -1662,6 +1809,38 @@ class Interface():
                 data[key] = self.e_int[idx, :][:, translation]
                 lbl[key] = "Interfacial Energy, ($eV/\AA2$)"
 
+            elif data[key].lower() == "e_int_vasp":
+                if len(translation) > self.e_int_vasp.shape[1]:
+                    string = "Translation (%i) outside e_int range (0,%i)"\
+                             % (np.max(translation), self.e_int_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+
+                data[key] = self.e_int_vasp[idx, :][:, translation]
+                lbl[key] = "Interfacial Energy (VASP), ($eV/\AA2$)"
+
+            elif data[key].lower() == "e_int_diff":
+                if len(translation) > self.e_int.shape[1]:
+                    string = "Translation (%i) outside e_int range (0,%i)"\
+                             % (np.max(translation), self.e_int.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.e_int[idx, :][:, translation], axis = 1) -\
+                            np.min(self.e_int[idx, :][:, translation], axis = 1)
+                lbl[key] = "Diff in Interfacial Energy, ($eV/\AA^2$)"
+
+            elif data[key].lower() == "e_int_diff_vasp":
+                if len(translation) > self.e_int_vasp.shape[1]:
+                    string = "Translation (%i) outside e_int range (0,%i)"\
+                             % (np.max(translation), self.e_int_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.e_int_vasp[idx, :][:, translation], axis = 1) -\
+                            np.min(self.e_int_vasp[idx, :][:, translation], axis = 1)
+                lbl[key] = "Diff in Interfacial Energy (VASP), ($eV/\AA^2$)"
+
             elif data[key].lower() == "w_sep":
                 if len(translation) > self.w_sep.shape[1]:
                     string = "Translation (%i) outside w_sep range (0,%i)"\
@@ -1671,6 +1850,16 @@ class Interface():
                 
                 data[key] = self.w_sep[idx, :][:, translation]
                 lbl[key] = "Work of Separation, ($eV/\AA^2$)"
+
+            elif data[key].lower() == "w_sep_vasp":
+                if len(translation) > self.w_sep_vasp.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = self.w_sep_vasp[idx, :][:, translation]
+                lbl[key] = "Work of Separation (VASP), ($eV/\AA^2$)"
 
             elif data[key].lower() == "w_sep_diff":
                 if len(translation) > self.w_sep.shape[1]:
@@ -1683,16 +1872,38 @@ class Interface():
                             np.min(self.w_sep[idx, :][:, translation], axis = 1)
                 lbl[key] = "Diff in Work of Separation, ($eV/\AA^2$)"
 
-            elif data[key].lower() == "w_sep_strain_diff":
-                if len(translation) > self.w_sep.shape[1]:
+            elif data[key].lower() == "w_sep_diff_vasp":
+                if len(translation) > self.w_sep_vasp.shape[1]:
                     string = "Translation (%i) outside w_sep range (0,%i)"\
-                             % (np.max(translation), self.w_sep.shape[1])
+                             % (np.max(translation), self.w_sep_vasp.shape[1])
                     ut.infoPrint(string)
                     return
                 
-                data[key] = np.max(self.w_sep[idx, :][:, translation], axis = 1) -\
-                            np.min(self.w_sep[idx, :][:, translation], axis = 1)
-                lbl[key] = "Diff in Work of Separation, ($eV/\AA^2$)"
+                data[key] = np.max(self.w_sep_vasp[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep_vasp[idx, :][:, translation], axis = 1)
+                lbl[key] = "Diff in Work of Separation (VASP), ($eV/\AA^2$)"
+
+            elif data[key].lower() == "w_sep_strain_diff":
+                if len(translation) > self.w_sep_strain.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep_strain.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.w_sep_strain[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep_strain[idx, :][:, translation], axis = 1)
+                lbl[key] = "Diff in Work of Separation (strained), ($eV/\AA^2$)"
+
+            elif data[key].lower() == "w_sep_strain_diff_vasp":
+                if len(translation) > self.w_sep_strain_vasp.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep_strain_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.w_sep_strain_vasp[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep_strain_vasp[idx, :][:, translation], axis = 1)
+                lbl[key] = "Diff in Work of Separation (strained) (VASP), ($eV/\AA^2$)"
 
             elif data[key].lower() == "w_sep_strain":
                 if len(translation) > self.w_sep_strain.shape[1]:
@@ -1703,6 +1914,16 @@ class Interface():
                 
                 data[key] = self.w_sep_strain[idx, :][:, translation]
                 lbl[key] = "Work of Separation (strained), ($eV/\AA^2$)"
+
+            elif data[key].lower() == "w_sep_strain_vasp":
+                if len(translation) > self.w_sep_strain_vasp.shape[1]:
+                    string = "Translation (%i) outside w_sep_strain range (0,%i)"\
+                             % (np.max(translation), self.w_sep_strain_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = self.w_sep_strain_vasp[idx, :][:, translation]
+                lbl[key] = "Work of Separation (strained) (VASP), ($eV/\AA^2$)"
 
             elif data[key].lower() == "other":
                 data[key] = other
@@ -1844,6 +2065,19 @@ class Interface():
             key = "W_sep_strain_T%i" % (i)
             dataDict[key] = np.round(self.w_sep_strain[idx, i], prec)
 
+        for i in range(self.e_int_vasp.shape[1]):
+            key = "E_int_vasp_T%i" % (i)
+            dataDict[key] = np.round(self.e_int_vasp[idx, i], prec)
+
+        for i in range(self.w_sep_vasp.shape[1]):
+            key = "W_sep_vasp_T%i" % (i)
+            dataDict[key] = np.round(self.w_sep_vasp[idx, i], prec)
+
+        for i in range(self.w_sep_strain_vasp.shape[1]):
+            key = "W_sep_strain_vasp_T%i" % (i)
+            dataDict[key] = np.round(self.w_sep_strain_vasp[idx, i], prec)
+
+
         data = pd.DataFrame(dataDict)
         data.to_excel(filename)
 
@@ -1855,7 +2089,7 @@ class Interface():
 
     def buildInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
                        verbose = 1, vacuum = 0, translation = None,\
-                       surface = None, anchor = "@"):
+                       surface = None, anchor = "@", alt_base = None):
         """Function for build a specific interface"""
 
         if verbose > 0:
@@ -1955,6 +2189,12 @@ class Interface():
         species = np.concatenate((spec_1, spec_2))[keep]
         mass = np.concatenate((mass_1, mass_2))[keep]
 
+        if alt_base is not None:
+            """If supplied then build the interface using a different base for 
+               the bottom cell. Intended to be used when switching from i.e. 
+               LAMMPS to VASP and one wants to retain a fully relaxed bottom base."""
+            F[:2, :2] = np.matmul(alt_base, self.rep_1[idx, :, :])
+
         """Return to cartesian coordinates and change shape to (...,3)"""
         pos = np.matmul(F, pos_d).T
 
@@ -1972,7 +2212,8 @@ class Interface():
     def exportInterface(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
                         verbose = 1, format = "lammps",\
                         filename = None, vacuum = 0, translation = None,\
-                        surface = None, anchor = "@"):
+                        surface = None, anchor = "@", alt_base = None,\
+                        kpoints = None):
         """Function for writing an interface to a specific file format"""
 
         if filename is None:
@@ -1985,7 +2226,7 @@ class Interface():
         base, pos, type_n, mass = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
                                                 verbose = verbose, vacuum = vacuum,\
                                                 translation = translation, surface = surface,\
-                                                anchor = anchor)
+                                                anchor = anchor, alt_base = alt_base)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
@@ -2008,10 +2249,13 @@ class Interface():
         """Write the structure object to specified file"""
         atoms.writeStructure(filename = filename, format = format, verbose = verbose)
 
+        """If specified write KPOINTS file"""
+        if kpoints is not None:
+            file_io.writeKPTS(cell = base, verbose = verbose, **kpoints)
 
 
     def buildSurface(self, idx = 0, surface = 1, z = 1, verbose = 1,\
-                     strained = False, vacuum = 0):
+                     strained = False, vacuum = 0, alt_base = None):
         """Function for build a specific interface"""
         
         if verbose > 0:
@@ -2056,25 +2300,45 @@ class Interface():
                                                     pos = pos.T, spec = spec,\
                                                     mass = mass)
 
-        """If it is the top surface then rotate it as done in the matching"""
-        if surface == 2:
+        if surface == 1:
+            if alt_base is not None:
+                """Convert to direct coordinates"""
+                pos_d = np.matmul(np.linalg.inv(new_base), pos_ext)
+
+                """Update the base to the alternative one"""
+                new_base[0:2, 0:2] = np.matmul(alt_base, self.rep_1[idx, :, :])
+
+                """Convert positions back to cartesian coordinates"""
+                pos_ext = np.matmul(new_base, pos_d)
+
+                if verbose > 0:
+                    string = "Surface 1 constructed with alternative base"
+                    ut.infoPrint(string)
+
+        elif surface == 2:
             """Initial rotation"""
             initRot = np.deg2rad(self.ang[idx])
 
             """Rotate the positions pos_rot = R*pos"""
             pos_ext = ut.rotate(pos_ext, initRot, verbose = verbose - 1)
 
-            if strained:
+            if strained or alt_base is not None:
                 """If the cell is to be strained then convert to direct coordinates"""
                 pos_d = np.matmul(np.linalg.inv(new_base), pos_ext)
 
                 """Convert back to cartesian coordinates. Redefine the "new_base" to
-                   be teh strained base"""
-                new_base[0:2, 0:2] = self.cell_1[idx, :, :].copy()
+                   be the strained base, with original/alternative base"""
+                if alt_base is None:
+                    new_base[0:2, 0:2] = self.cell_1[idx, :, :].copy()
+                    string = "Surface 2 strained to match surface 1"
+                    
+                else:
+                    new_base[0:2, 0:2] = np.matmul(alt_base, self.rep_1[idx, :, :])
+                    string = "Surface 2 strained to match surface 1 with an alternative base"
+
                 pos_ext = np.matmul(new_base, pos_d)
 
                 if verbose > 0:
-                    string = "Surface 2 strained to match surface 1"
                     ut.infoPrint(string)
 
         """Convert the entire new cell to direct coordinates"""
@@ -2104,7 +2368,8 @@ class Interface():
 
 
     def exportSurface(self, idx = 0, z = 1, verbose = 1, format = "lammps",\
-                      filename = None, vacuum = 0, surface = 1, strained = False):
+                      filename = None, vacuum = 0, surface = 1, strained = False,\
+                      alt_base = None, kpoints = None):
         """Function for writing an interface to a specific file format"""
 
         if filename is None:
@@ -2113,7 +2378,7 @@ class Interface():
         """Build the selected interface"""
         base, pos, type_n, mass = self.buildSurface(idx = idx, z = z, verbose = verbose,\
                                               vacuum = vacuum, surface = surface,\
-                                              strained = strained)
+                                              strained = strained, alt_base = alt_base)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))
@@ -2134,11 +2399,14 @@ class Interface():
         """Write the structure object to specified file"""
         atoms.writeStructure(filename = filename, format = format, verbose = verbose)
 
+        """If specified write KPOINTS file"""
+        if kpoints is not None:
+            file_io.writeKPTS(cell = base, verbose = verbose, **kpoints)
 
 
 
     def buildInterfaceStructure(self, idx = 0, z_1 = 1, z_2 = 1, d = 2.5,\
-                                verbose = 1, filename = None,\
+                                verbose = 1, filename = None, alt_base = None,\
                                 vacuum = 0, translation = None, surface = None):
         """Function for writing an interface to a specific file format"""
 
@@ -2150,7 +2418,7 @@ class Interface():
 
         """Build the selected interface"""
         base, pos, type_n, mass = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\
-                                                verbose = verbose, vacuum = vacuum,\
+                                                verbose = verbose, vacuum = vacuum, alt_base = alt_base,\
                                                 translation = translation, surface = surface)
 
         """Sort first based on type then Z-position then Y-position"""
@@ -2174,7 +2442,7 @@ class Interface():
 
 
 
-    def buildSurfaceStructure(self, idx = 0, z = 1, verbose = 1,\
+    def buildSurfaceStructure(self, idx = 0, z = 1, verbose = 1, alt_base = None,\
                               filename = None, vacuum = 0, surface = None):
         """Function for writing an interface to a specific file format"""
 
@@ -2183,7 +2451,7 @@ class Interface():
 
         """Build the selected interface"""
         base, pos, type_n, mass = self.buildSurface(idx = idx, z = z, verbose = verbose,\
-                                              vacuum = vacuum, surface = surface)
+                                              vacuum = vacuum, surface = surface, alt_base = alt_base)
 
         """Sort first based on type then Z-position then Y-position"""
         ls = np.lexsort((pos[:, 1], pos[:, 2], type_n))

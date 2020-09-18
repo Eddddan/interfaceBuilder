@@ -29,6 +29,10 @@ parser.add_argument("-etpa", "--energy_total_per_area", type = float, required =
 parser.add_argument("-t", "--translation", type = int, required = True,\
                     help = "Index of the used translation (0-based)")
 
+fmt = ["lammps", "vasp"]
+parser.add_argument("-f", "--format", choices = fmt, default = "lammps",\
+                    help = "Set lammps data or vasp data")
+
 parser.add_argument("-v", "--verbose", action = "count", default = 0,\
                     help = "Print extra information")
 
@@ -41,5 +45,5 @@ itf = utils.loadInterfaces(filename = opt.input)
 work_sep = opt.energy_total_per_area - opt.energy_per_area[0] - opt.energy_per_area[1]
 
 """Set the value and save"""
-itf.setWsep(idx = opt.index, w_sep = work_sep, translation = opt.translation, verbose = opt.verbose)
+itf.setWsep(idx = opt.index, w_sep = work_sep, translation = opt.translation, version = opt.format, verbose = opt.verbose)
 itf.saveInterfaces(filename = opt.input, verbose = opt.verbose)

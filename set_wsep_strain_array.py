@@ -25,6 +25,10 @@ parser.add_argument("-ai", "--array_input", type = str, nargs = "+", required = 
                     help = "File containing energy/area data shape(N+1,4), (idx, E_t0, E_t1,...) "\
                     "with a header containing the translations")
 
+fmt = ["lammps", "vasp"]
+parser.add_argument("-f", "--format", choices = fmt, default = "lammps",\
+                    help = "Set lammps data or vasp data")
+
 opt = parser.parse_args()
 
 """Load file containing the interfaces"""
@@ -44,7 +48,7 @@ for i in opt.array_input:
     index = data[:, 0].astype(np.int)
 
     """Set the energy"""
-    itf.setWsepStrainArray(idx = index, translation = trans, w_sep_strain = data[:, 1:])
+    itf.setWsepStrainArray(idx = index, translation = trans, w_sep_strain = data[:, 1:], version = opt.format)
 
 """Save the interfaces"""
 itf.saveInterfaces(filename = opt.input, verbose = opt.verbose)
