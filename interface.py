@@ -52,6 +52,8 @@ class Interface():
         self.mass_1 = structure_a.mass
         self.mass_2 = structure_b.mass
         self.filename = None
+        self.alt_base = []
+        self.info = {"base": None}
 
 
 
@@ -287,6 +289,61 @@ class Interface():
 
 
 
+    def getStrain(self, idx = None, strain = "eps_mas", base_1 = None, base_2 = None):
+        """Get specified strain with regards to the specified base"""
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = [idx]
+
+        if base_1 is None and base_2 is None:
+            """Send back the original strains as specified"""
+            if strain.lower() == "eps_11":
+                return self.eps_11[idx]
+            elif strain.lower() == "eps_22":
+                return self.eps_22[idx]
+            elif strain.lower() == "eps_12":
+                return self.eps_12[idx]
+            elif strain.lower() == "eps_mas":
+                return self.eps_mas[idx]
+            elif strain.lower() == "array":
+                return np.vstack((self.eps_11[idx],\
+                                  self.eps_22[idx],\
+                                  self.eps_12[idx]))
+
+        else:
+            """Calculate new cell vectors baded on the supplied base and the 
+            existing repetitions of that base"""
+
+            """Change the bottom cell vectors to match the new base"""
+            if base_1 is not None:
+                if isinstance(base_1, (int, np.integer)): 
+                    base_1 = self.alt_base[base_1]
+                A = np.matmul(base_1[:2, :2], self.rep_1[idx, :, :])
+            else:
+                A = self.cell_1[idx, :, :]
+            if base_2 is not None:
+                if isinstance(base_2, (int, np.integer)): 
+                    base_2 = self.alt_base[base_2]
+                B = np.matmul(base_2[:2, :2], self.rep_2[idx, :, :])
+            else:
+                B = self.cell_2[idx, :, :]
+            
+            """Get the new strains"""
+            eps_11, eps_22, eps_12, eps_mas = ut.calcStrains(a = A, b = B)
+
+            if strain.lower() == "eps_11":
+                return eps_11
+            elif strain.lower() == "eps_22":
+                return eps_22
+            elif strain.lower() == "eps_12":
+                return eps_12
+            elif strain.lower() == "eps_mas":
+                return eps_mas
+            elif strain.lower() == "array":
+                return np.vstack((eps_11, eps_22, eps_12))
+        
+
+
     def getAtomStrainRatio(self, strain = "eps_mas", const = None, exp = 1, verbose = 1):
         """Get the property atoms - A * abs(strain) ** B"""
 
@@ -346,7 +403,22 @@ class Interface():
             ut.infoPrint(string)
 
         return C, E
+
+
+    def getAtomStrainIdx(self, matches = 100, const = None, exp = 1,\
+                             strain = "eps_mas", verbose = 1, max_iter = 500,\
+                             tol = 1e-7, endpoint = "over"):
+        """Function for returning the index of itnterfaces below the specified ratio"""
+
+        C, E = self.getAtomStrainMatches(matches = matches, const = const, exp = exp,\
+                                         strain = strain, verbose = verbose - 1,\
+                                         max_iter = max_iter, tol = tol, endpoint = endpoint)
+
+        r = self.getAtomStrainRatio(strain = strain, const = C, exp = E, verbose = verbose - 1)
+        idx = np.arange(self.atoms.shape[0])[r < 0]
     
+        return idx
+
 
 
     def removeByAtomStrain(self, keep = 50000, verbose = 1, endpoint = "over",\
@@ -680,15 +752,43 @@ class Interface():
                 self.w_sep_strain_vasp[idx, col] = w_sep_strain_vasp[:, i]
 
 
+    def setAltBase(self, base = None, from_input = None, from_file = None, format = None):
+        """Function for adding a new base"""
 
-    def getAreas(self, idx = None, cell = 1):
+        """Read data from inputs or rom file if specified"""
+        if from_input is not None: 
+            base = inputs.getInputs(from_input)[0]
+        elif from_file is not None:
+            base = file_io.readData(filename = from_file, format = format)[0]
+
+        if base is None:
+            string = "No base or input specified. No alt_base set"
+            ut.infoPrint(string)
+            return
+
+        original = len(self.alt_base)
+        self.alt_base.append(base)
+        string = "Added base [[%.5f %.5f %.5f],[%.5f %.5f %.5f],[%.5f %.5f %.5f]] as alt_base: %i"\
+                 % (base[0, 0], base[0, 1], base[0, 2], base[1, 0], base[1, 1], base[1, 2],\
+                    base[2, 0], base[2, 1], base[2, 2], original + 1)
+        ut.infoPrint(string)
+        
+
+
+    def redefineCell(self, original = True, base = 0):
+        """Redefines all parameters based on new parameters for the bottom cell"""
+        print("Redefine Cell")
+        
+
+
+    def getAreas(self, idx = None, cell = 1, base = None):
         """Function for getting the area of multiple interfaces"""
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
 
         if cell == 1:
             return np.abs(np.linalg.det(self.cell_1[idx, :, :]))
-        else:
+        elif cell == 2:
             return np.abs(np.linalg.det(self.cell_2[idx, :, :]))
 
 
@@ -1169,14 +1269,24 @@ class Interface():
         hAx.set_xlabel("$\epsilon_{mas}$, (%)")
         hAx.set_ylabel("Atoms")
 
+        self.hexPlotCombinations(eps = "eps_mas", col = 2, row = 2, N = 4,\
+                                 verbose = 0, handle = True)
+        hAx = plt.gca()
+        hAx.yaxis.tick_right()
+        hAx.yaxis.set_label_position("right")
+        hAx.set_xlabel("$\epsilon_{mas}$, (%)")
+        hAx.set_ylabel("Atoms")
+
+        """
         hAx = plt.subplot(2, 2, 4)
         hAx.set_xlim((0, 10))
         hAx.set_ylim((0, 10))
         hAx.set_xticks([])
         hAx.set_yticks([])
         hAx.set_frame_on(False)
-
+        """
         """Forth "plot" printed information"""
+        """
         a = self.atoms[idx]
         al = self.getBaseLength(idx = idx, cell = 1)
         bl = self.getBaseLength(idx = idx, cell = 2)
@@ -1225,7 +1335,7 @@ class Interface():
         hAx.text(1.5, 5, string1 + string2 + string3 + string4 + string5, ha = "left", va = "center",\
                  fontsize = "small", bbox=dict(facecolor = (0, 0, 1, 0.1), edgecolor = (0, 0, 1, 0.5),\
                  lw = 1))
-
+                 """
         plt.tight_layout(h_pad = 0.2, w_pad = 2)
         if save:
             if save is True:
@@ -1495,8 +1605,8 @@ class Interface():
     def plotCombinations(self, idx = None, const = None, exp = 1,\
                          mark = None, save = False, format = "pdf",\
                          dpi = 100, handle = False, eps = "eps_mas",\
-                         verbose = 1, col = 1, row = 1, N = 1, mark_ms = 3.5,\
-                         mark_m = "s", marker = "o", **kwarg):
+                         verbose = 1, col = 1, row = 1, N = 1, mark_ms = 3,\
+                         mark_m = "o", marker = "o", **kwarg):
         """Plots strain vs. atoms for the interfaces"""
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
@@ -1573,8 +1683,8 @@ class Interface():
             lines.append(l[0])
 
         if mark is not None:
-            l = hAx.plot(strain_m * 100, atoms_m, color = 'm', marker = mark_m,\
-                         linestyle = "None", markersize = mark_ms, mfc = 'm', mew = 1, mec = 'k')
+            l = hAx.plot(strain_m * 100, atoms_m, color = 'k', marker = mark_m,\
+                         linestyle = "None", markersize = mark_ms, mfc = 'k')
             
             lines.append(l[0])
 
@@ -1586,44 +1696,33 @@ class Interface():
         
         if handle: return
 
-        an = hAx.annotate("", xy=(0,0), xytext=(-20,20),textcoords="offset points",
-                          bbox=dict(boxstyle="round", fc="w"),
-                          arrowprops=dict(arrowstyle="->"), fontsize = "small")
-        an.set_visible(False)
+        for line in lines:
+            line.set_picker(3)
 
+        anP = hAx.plot([], [], marker = 'o', ms = 5, color = 'm', mew = 2, mfc = 'None')
 
-        def update_annotation(line, ind):
+        def update_annotation(line, ind, event):
             x, y = line.get_data()
-            xVal = x[ind["ind"][0]]
-            yVal = y[ind["ind"][0]]
+            closest = np.argmin(np.sqrt((x[ind["ind"]] - event.xdata)**2 +\
+                                        (y[ind["ind"]] - event.ydata)**2))
+            xSel = x[ind["ind"]][closest]
+            ySel = y[ind["ind"]][closest]
 
-            an.xy = (xVal, yVal)
-            text = "%.3f, %i" % (xVal, yVal)
+            dx = 1e-7
+            dy = 1e-7
 
-            if eps.lower() == "eps_11":
-                match = (np.round(np.abs(self.eps_11), 6) == np.round((xVal / 100), 6)) * (self.atoms == yVal)
-            elif eps.lower() == "eps_22":
-                match = (np.round(np.abs(self.eps_22), 6) == np.round((xVal / 100), 6)) * (self.atoms == yVal)
-            elif eps.lower() == "eps_12":
-                match = (np.round(np.abs(self.eps_12), 6) == np.round((xVal / 100), 6)) * (self.atoms == yVal)    
-            else:
-                match = (np.round(self.eps_mas, 6) == np.round((xVal / 100), 6)) * (self.atoms == yVal)
+            ms = plt.getp(line, "markersize") * 2.7
+            plt.setp(anP[0], markersize = ms)
+            anP[0].set_data(xSel, ySel)
+
+            S = self.getStrain(idx = idx, strain = eps, base = None)
+            match = (np.abs(S - xSel / 100) < dx) * (np.abs(self.atoms[idx] - ySel) < dy)
 
             match = np.arange(match.shape[0])[match]
             self.printInterfaces(idx = match)
 
-            if not isinstance(match, (int, np.integer)):
-                match = ", ".join([str(i) for i in match])
-            else:
-                match = str(match)
-            
-            text = "%.3f, %i, (%s)" % (xVal, yVal, match)
-            an.set_text(text)
-            an.get_bbox_patch().set_alpha(1)
-
 
         def click(event):
-            vis = an.get_visible()
             if event.inaxes == hAx:
                 for line in lines:
                     cont, ind = line.contains(event)
@@ -1631,13 +1730,12 @@ class Interface():
                         break
 
                 if cont:
-                    update_annotation(line, ind)
-                    an.set_visible(True)
+                    update_annotation(line, ind, event)
                     hFig.canvas.draw_idle()
                 else:
-                    if vis:
-                        an.set_visible(False)
-                        hFig.canvas.draw_idle()
+                    anP[0].set_data([], [])
+                    hFig.canvas.draw_idle()
+            
 
         hAx.set_xscale("log")
         hAx.set_yscale("log")
@@ -1714,6 +1812,8 @@ class Interface():
 
         data = {"x": x, "y": y, "z": z}
         lbl = {"x": "", "y": "", "z": ""}
+        raw_x = x; raw_y = y
+        b1 = None; b2 = None
 
         for key in data:
             if data[key] is None: continue
@@ -1723,29 +1823,26 @@ class Interface():
                 lbl[key] = "Index"
 
             elif data[key].lower() == "eps_11":
-                data[key] = self.eps_11[idx]
+                data[key] = self.getStrain(idx = idx, strain = "eps_11", base_1 = b1, base_2 = b2)
                 lbl[key] = "$\epsilon_{11}$"
 
             elif data[key].lower() == "eps_22":
-                data[key] = self.eps_22[idx]
+                data[key] = self.getStrain(idx = idx, strain = "eps_22", base_1 = b1, base_2 = b2)
                 lbl[key] = "$\epsilon_{22}$"
 
             elif data[key].lower() == "eps_12":
-                data[key] = self.eps_12[idx]
+                data[key] = self.getStrain(idx = idx, strain = "eps_12", base_1 = b1, base_2 = b2)
                 lbl[key] = "$\epsilon_{12}$"
 
             elif data[key].lower() == "eps_mas":
-                data[key] = self.eps_mas[idx]
+                data[key] = self.getStrain(idx = idx, strain = "eps_mas", base_1 = b1, base_2 = b2)
                 lbl[key] = "$\epsilon_{mas}$"
 
             elif data[key].lower() == "eps_max":
-                max = np.max(np.vstack((self.eps_11[idx],\
-                                        self.eps_22[idx],\
-                                        self.eps_12[idx])), axis = 0)
-                min = np.min(np.vstack((self.eps_11[idx],\
-                                        self.eps_22[idx],\
-                                        self.eps_12[idx])), axis = 0)
-
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                max = np.max(eps_stack, axis = 0)
+                min = np.min(eps_stack, axis = 0)
                 """Check if abs(min) is bigger than max, (to preserve sign)"""
                 max[np.abs(min) > np.abs(max)] = min[np.abs(min) > np.abs(max)]
                 data[key] = max
@@ -1760,15 +1857,21 @@ class Interface():
                 lbl[key] = "Cell Angle, (Deg)"
 
             elif data[key].lower() == "norm":
-                data[key] = np.sqrt(self.eps_11[idx]**2 + self.eps_22[idx]**2 + self.eps_12[idx]**2)
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                data[key] = np.linalg.norm(eps_stack, axis = 0)
                 lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$"
 
             elif data[key].lower() == "norm_trace":
-                data[key] = np.sqrt(self.eps_11[idx]**2 + self.eps_22[idx]**2)
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                data[key] = np.sqrt(eps_stack[1, :]**2 + eps_stack[0, :]**2)
                 lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2}$"
 
             elif data[key].lower() == "trace":
-                data[key] = np.abs(self.eps_11[idx]) + np.abs(self.eps_22[idx])
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                data[key] = np.abs(eps_stack[0, :]) + np.abs(eps_stack[1, :])
                 lbl[key] = "$|\epsilon_{11}|+|\epsilon_{22}|$"
 
             elif data[key].lower() == "rotation":
@@ -1777,11 +1880,11 @@ class Interface():
 
             elif data[key].lower() == "a_1":
                 data[key] = self.getCellLengths(idx = idx, cell = 1)
-                lbl[key] = "Length $a_1$, ($\AA^2$)"
+                lbl[key] = "Length $a_1$, ($\AA$)"
 
             elif data[key].lower() == "a_2":
                 data[key] = self.getCellLengths(idx = idx, cell = 1)
-                lbl[key] = "Length $a_2$, ($\AA^2$)"
+                lbl[key] = "Length $a_2$, ($\AA$)"
 
             elif data[key].lower() == "area":
                 data[key] = self.getAreas(idx = idx, cell = 1)
@@ -1930,8 +2033,7 @@ class Interface():
                 lbl[key] = "Custom"
 
             else:
-                plt.close()
-                string = "Unrecognized x_data argument: %s" % x_data
+                string = "Unrecognized key: %s" % key
                 ut.infoPrint(string)
                 return
 
@@ -1944,8 +2046,8 @@ class Interface():
             mew = kwarg.pop("markeredgewidth", 1)
 
             hAx = plt.subplot(row, col, N)
-            hAx.plot(data["x"], data["y"], linestyle = ls, mew = mew, marker = m,\
-                     markersize = ms, **kwarg)
+            hP = hAx.plot(data["x"], data["y"], linestyle = ls, mew = mew, marker = m,\
+                          markersize = ms, **kwarg)
             hAx.set_xlabel(lbl["x"])
             hAx.set_ylabel(lbl["y"])
         else:
@@ -1961,17 +2063,20 @@ class Interface():
             vmax = kwarg.pop("vmax", np.max(data["z"]))
             c = kwarg.pop("color", 'b')
 
+            hP = []
             j,k,l = (0, 0, 0)
             for i, t in enumerate(translation):
             
-                hS = hAx.scatter(data["x"][:, j], data["y"][:, k], c = data["z"][:, l],\
+                tP = hAx.scatter(data["x"][:, j], data["y"][:, k], c = data["z"][:, l],\
                                  vmin = vmin, vmax = vmax, cmap = cmap, **kwarg)
+
+                hP.append(tP)
 
                 if np.shape(data["x"])[1] > 1: j += 1
                 if np.shape(data["y"])[1] > 1: k += 1
                 if np.shape(data["z"])[1] > 1: l += 1
                 
-            plt.colorbar(hS, label = lbl["z"])
+            plt.colorbar(hP[0], label = lbl["z"])
             hAx.set_xlabel(lbl["x"])
             hAx.set_ylabel(lbl["y"])
 
@@ -1984,11 +2089,398 @@ class Interface():
                 lgd.append("$T_{%i}$" % i)
                 plt.legend(lgd, framealpha = 1)
 
+        """Annotating plot marker"""
+        hP[0].set_picker(2)
+        anP = hAx.plot([], [], marker = 'o', ms = 6, color = 'k', mew = 2, mfc = 'None')
         plt.tight_layout()
+
+        """Function to allow clickable points to display information"""
+        def click(event):
+            if event.inaxes == hAx:
+                #print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+                #          ('double' if event.dblclick else 'single', event.button,
+                #           event.x, event.y, event.xdata, event.ydata))
+
+                #hAx.transData.transform((event.xdata, event.ydata))
+                #hAx.transData.inverted().transform(t)
+
+                for line in hP:
+                    cont, ind = line.contains(event)
+                    if cont:
+                        break
+
+                if cont:
+                    if data["z"] is not None:
+                        x = line.get_offsets()[:, 0]
+                        y = line.get_offsets()[:, 1]
+                    else:
+                        x, y = line.get_data()
+
+                    xSel = x[ind["ind"]]
+                    ySel = y[ind["ind"]]
+
+                    pPos = hAx.transData.transform((xSel, ySel))
+                    pDist = np.linalg.norm(pPos - [[event.x, event.y]], axis = 1)
+                    select = np.argmin(pDist)
+                    index = ind["ind"][select]
+                    anP[0].set_data(x[ind["ind"]], y[ind["ind"]])
+                    for n, i in enumerate(ind["ind"]):
+                        string = "Idx: %i  %s: %.4f  %s: %.4f  Nr Points: %i"\
+                            % (idx[i], raw_x, x[i], raw_y, y[i], len(ind["ind"]))
+
+                        if n == 0: 
+                            print("=" * len(string))
+                        print(string)
+                        if n == len(ind["ind"]) - 1: 
+                            print("=" * len(string))
+
+                    hFig.canvas.draw_idle()
+                else:
+                    anP[0].set_data([], [])
+                    hFig.canvas.draw_idle()
+
 
         if save:
             if save is True:
-                ut.save_fig(filename = filename, format = format,\
+                ut.save_fig(filename = "PropertyPlot.%s" % format, format = format,\
+                         dpi = dpi, verbose = verbose)
+            else:
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
+                         verbose = verbose)
+            plt.close()
+        else:
+            hFig.canvas.mpl_connect("button_release_event", click)
+            plt.show()
+
+
+
+    def getCovariance(self, var, idx = None, translation = None, other = None,\
+                      verbose = 1):
+        """Function for calculating covariance between specified variables
+        
+        For available values for "var" see function plotCovariance
+
+        """
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if translation is None: translation = [0]
+        if isinstance(translation, (int, np.integer)): translation = [translation]
+                
+        data = {}
+        lbl = {}
+        b1 = None; b2 = None
+
+        for key in var:
+            if key.lower() == "idx":
+                data[key] = np.array(idx)
+                lbl[key] = "Index"
+
+            elif key.lower() == "eps_11":
+                data[key] = self.getStrain(idx = idx, strain = "eps_11", base_1 = b1, base_2 = b2)
+                lbl[key] = "$\epsilon_{11}$"
+
+            elif key.lower() == "eps_22":
+                data[key] = self.getStrain(idx = idx, strain = "eps_22", base_1 = b1, base_2 = b2)
+                lbl[key] = "$\epsilon_{22}$"
+
+            elif key.lower() == "eps_12":
+                data[key] = self.getStrain(idx = idx, strain = "eps_12", base_1 = b1, base_2 = b2)
+                lbl[key] = "$\epsilon_{12}$"
+
+            elif key.lower() == "eps_mas":
+                data[key] = self.getStrain(idx = idx, strain = "eps_mas", base_1 = b1, base_2 = b2)
+                lbl[key] = "$\epsilon_{mas}$"
+
+            elif key.lower() == "eps_max":
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                max = np.max(eps_stack, axis = 0)
+                min = np.min(eps_stack, axis = 0)
+                """Check if abs(min) is bigger than max, (to preserve sign)"""
+                max[np.abs(min) > np.abs(max)] = min[np.abs(min) > np.abs(max)]
+                data[key] = max
+                lbl[key] = "Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})$"
+
+            elif key.lower() == "atoms":
+                data[key] = self.atoms[idx]
+                lbl[key] = "Atoms"
+
+            elif key.lower() == "angle":
+                data[key] = self.getBaseAngles(idx = idx, cell = 1, rad = False)
+                lbl[key] = "Cell Ang, (Deg)"
+
+            elif key.lower() == "norm":
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                data[key] = np.linalg.norm(eps_stack, axis = 0)
+                lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$"
+
+            elif key.lower() == "norm_trace":
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                data[key] = np.sqrt(eps_stack[1, :]**2 + eps_stack[0, :]**2)
+                lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2}$"
+
+            elif key.lower() == "trace":
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                data[key] = np.abs(eps_stack[0, :]) + np.abs(eps_stack[1, :])
+                lbl[key] = "$|\epsilon_{11}|+|\epsilon_{22}|$"
+
+            elif key.lower() == "rotation":
+                data[key] = self.ang[idx]
+                lbl[key] = "Init Rot, (Deg)"
+
+            elif key.lower() == "a_1":
+                data[key] = self.getCellLengths(idx = idx, cell = 1)
+                lbl[key] = "L $a_1$, ($\AA$)"
+
+            elif key.lower() == "a_2":
+                data[key] = self.getCellLengths(idx = idx, cell = 1)
+                lbl[key] = "L $a_2$, ($\AA$)"
+
+            elif key.lower() == "area":
+                data[key] = self.getAreas(idx = idx, cell = 1)
+                lbl[key] = "Area, ($\AA^2$)"
+
+            elif key.lower() == "density":
+                area = self.getAreas(idx = idx, cell = 1)
+                base_area_1 = np.abs(np.cross(self.base_1[0, :2], self.base_1[1, :2]))
+                base_area_2 = np.abs(np.cross(self.base_2[0, :2], self.base_2[1, :2]))
+
+                vol = self.base_2[2, 2] * area
+                atoms = self.atoms[idx] - area * (self.pos_1.shape[0] / base_area_1)
+                norm_density = self.pos_2.shape[0] / (base_area_2 * self.base_2[2, 2])
+
+                data[key] = atoms / (vol * norm_density)
+                lbl[key] = "Density, ($Atoms/(\AA^2*standard)$)"
+
+            elif key.lower() == "e_int":
+                if len(translation) > self.e_int.shape[1]:
+                    string = "Translation (%i) outside e_int range (0,%i)"\
+                             % (np.max(translation), self.e_int.shape[1])
+                    ut.infoPrint(string)
+                    return
+
+                data[key] = self.e_int[idx, :][:, translation]
+                lbl[key] = "IE, ($eV/\AA2$)"
+
+            elif key.lower() == "e_int_vasp":
+                if len(translation) > self.e_int_vasp.shape[1]:
+                    string = "Translation (%i) outside e_int range (0,%i)"\
+                             % (np.max(translation), self.e_int_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+
+                data[key] = self.e_int_vasp[idx, :][:, translation]
+                lbl[key] = "IEV, ($eV/\AA2$)"
+
+            elif key.lower() == "e_int_diff":
+                if len(translation) > self.e_int.shape[1]:
+                    string = "Translation (%i) outside e_int range (0,%i)"\
+                             % (np.max(translation), self.e_int.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.e_int[idx, :][:, translation], axis = 1) -\
+                            np.min(self.e_int[idx, :][:, translation], axis = 1)
+                lbl[key] = "dIE, ($eV/\AA^2$)"
+
+            elif key.lower() == "e_int_diff_vasp":
+                if len(translation) > self.e_int_vasp.shape[1]:
+                    string = "Translation (%i) outside e_int range (0,%i)"\
+                             % (np.max(translation), self.e_int_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.e_int_vasp[idx, :][:, translation], axis = 1) -\
+                            np.min(self.e_int_vasp[idx, :][:, translation], axis = 1)
+                lbl[key] = "dIEV, ($eV/\AA^2$)"
+
+            elif key.lower() == "w_sep":
+                if len(translation) > self.w_sep.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = self.w_sep[idx, :][:, translation]
+                lbl[key] = "WS, ($eV/\AA^2$)"
+
+            elif key.lower() == "w_sep_vasp":
+                if len(translation) > self.w_sep_vasp.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = self.w_sep_vasp[idx, :][:, translation]
+                lbl[key] = "WSV, ($eV/\AA^2$)"
+
+            elif key.lower() == "w_sep_diff":
+                if len(translation) > self.w_sep.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.w_sep[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep[idx, :][:, translation], axis = 1)
+                lbl[key] = "dWS, ($eV/\AA^2$)"
+
+            elif key.lower() == "w_sep_diff_vasp":
+                if len(translation) > self.w_sep_vasp.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.w_sep_vasp[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep_vasp[idx, :][:, translation], axis = 1)
+                lbl[key] = "dWSV, ($eV/\AA^2$)"
+
+            elif key.lower() == "w_sep_strain_diff":
+                if len(translation) > self.w_sep_strain.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep_strain.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.w_sep_strain[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep_strain[idx, :][:, translation], axis = 1)
+                lbl[key] = "dWSS, ($eV/\AA^2$)"
+
+            elif key.lower() == "w_sep_strain_diff_vasp":
+                if len(translation) > self.w_sep_strain_vasp.shape[1]:
+                    string = "Translation (%i) outside w_sep range (0,%i)"\
+                             % (np.max(translation), self.w_sep_strain_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = np.max(self.w_sep_strain_vasp[idx, :][:, translation], axis = 1) -\
+                            np.min(self.w_sep_strain_vasp[idx, :][:, translation], axis = 1)
+                lbl[key] = "dWSSV, ($eV/\AA^2$)"
+
+            elif key.lower() == "w_sep_strain":
+                if len(translation) > self.w_sep_strain.shape[1]:
+                    string = "Translation (%i) outside w_sep_strain range (0,%i)"\
+                             % (np.max(translation), self.w_sep_strain.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = self.w_sep_strain[idx, :][:, translation]
+                lbl[key] = "WSS, ($eV/\AA^2$)"
+
+            elif key.lower() == "w_sep_strain_vasp":
+                if len(translation) > self.w_sep_strain_vasp.shape[1]:
+                    string = "Translation (%i) outside w_sep_strain range (0,%i)"\
+                             % (np.max(translation), self.w_sep_strain_vasp.shape[1])
+                    ut.infoPrint(string)
+                    return
+                
+                data[key] = self.w_sep_strain_vasp[idx, :][:, translation]
+                lbl[key] = "WSSV, ($eV/\AA^2$)"
+
+            elif key.lower() == "other":
+                data[key] = other
+                lbl[key] = "Custom"
+
+            else:
+                string = "Unrecognized key: %s" % key
+                ut.infoPrint(string)
+                return
+    
+        string = ""
+        values = np.zeros((len(data), np.shape(data[var[0]])[0]))
+        for i, key in enumerate(data):
+            if np.ndim(data[key]) == 1:
+                values[i, :] = data[key]
+            else:
+                values[i, :] = data[key][:, 0]
+
+            string += "%s, " % key
+
+        if verbose > 0:
+            ut.infoPrint("Covariance for var: %s" % string[:-2])
+
+        cov = np.cov(values)
+        ccoef = np.corrcoef(values)
+
+        return cov, ccoef, lbl
+
+
+
+    def plotCovariance(self, var, idx = None, translation = None, norm = True, other = None,\
+                       verbose = 1, cmap = "bwr", save = False, dpi = 100, format = "pdf",\
+                       vmin = -1, vmax = 1):
+        """Function to plot the covariance matrix or the supplied variables
+
+        Available values for "var" are
+        ------------------------
+        idx        = Index of current sorting
+        eps_11     = Eps_11
+        eps_22     = Eps_22
+        eps_12     = Eps_12
+        eps_mas    = Eps_mas
+        eps_max    = max(eps_11, eps_22, eps_12)
+        atoms      = Nr of atoms
+        angle      = Angle between interface cell vectors
+        rotation   = Initial rotation at creation
+        norm       = Sqrt(eps_11^2+eps_22^2+eps_12^2)
+        trace      = |eps_11|+|eps_22|
+        norm_trace = Sqrt(eps_11^2+eps_22^2)
+        a_1        = Length of interface cell vector a_1
+        a_2        = Length of interface cell vector a_2
+        area       = Area of the interface
+        other      = Plot a custom array of values specified with keyword other. Length must match idx.
+        e_int            = Interfacial energy, for specified translation(s)
+        e_int_vasp       = Interfacial energy (vasp), for specified translation(s)
+        e_int_diff       = Difference in Interfacial energy between translations
+        e_int_diff_vasp  = Difference in Interfacial energy (vasp) between translations
+        w_sep            = Work of separation, for specified translation(s)
+        w_sep_vasp       = Work of separation (vasp), for specified translation(s)
+        w_sep_strain           = Work of separation (strained ref), for specified translation(s)
+        w_sep_strain_vasp      = Work of separation (strained ref) (vasp), for specified translation(s)
+        w_sep_diff             = Difference in w_sep between tranlsations
+        w_sep_diff_vasp        = Difference in w_sep (vasp) between tranlsations
+        w_sep_strain_diff      = Difference in w_sep_strain between translations
+        w_sep_strain_diff_vasp = Difference in w_sep_strain (vasp) between translations
+        """ 
+
+        ccoef, lbl = self.getCovariance(var = var, idx = idx, other = other,\
+                                        translation = translation, verbose = verbose - 1)[1:]
+
+        val = np.round(ccoef, 2)
+
+        lbl = list(lbl.values())
+        hFig, hAx = plt.subplots(figsize = (8, 6.5))
+        hIm = hAx.imshow(val, cmap = cmap)
+        hIm.set_clim(vmin, vmax)
+
+
+        hAx.set_xticks(np.arange(len(lbl)))
+        hAx.set_yticks(np.arange(len(lbl)))
+
+        hAx.set_xticklabels(lbl)
+        hAx.set_yticklabels(lbl)
+
+
+        plt.setp(hAx.get_xticklabels(), rotation = 45, ha = "right",
+                 rotation_mode = "anchor")
+
+        cbar = hAx.figure.colorbar(hIm, ax = hAx)
+
+        for i in range(len(lbl)):
+            for j in range(len(lbl)):
+                text = hAx.text(j, i, val[i, j], ha = "center",\
+                                va = "center", color = "k")
+
+        hAx.set_title("Covariance")
+        hFig.tight_layout()
+
+        if save:
+            if save is True:
+                ut.save_fig(filename = "CovariancePlot.%s" % format, format = format,\
                          dpi = dpi, verbose = verbose)
             else:
                 ut.save_fig(filename = save, format = format, dpi = dpi,\

@@ -286,6 +286,7 @@ def calcStrains(a, b):
     return eps_11, eps_22, eps_12, eps_mas
 
 
+
 def getAngles(a, b):
     """Function for finding the angle between vectors"""
     
