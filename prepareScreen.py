@@ -8,6 +8,25 @@ import interface
 import structure
 import numpy as np
 
+
+"""This script prepares 8 different types of interfaces (0001 or 10-10(T)) 
+   against (100 or 110) with both C and W terminations of the bottom WC cell.
+
+   All structure parameters are in this case stored in the input.py file.
+   
+   It searches 12 by 12 repititions of the top cell and matches it to the
+   best possible match of the bottom cell for each rotation between the 2 cells
+   at intervalls of 2 degrees. We limit the nr of outputs to 5000 (millions of 
+   interfaces are initially found) interfaces with the main critera or selection
+   beeing a ratio between strain and the number of atoms.
+
+   The interface objects are saved to .pkl files which can be easily loaded by
+   typing i = utils.loadInterfaces("Name-of-the-saved-file").
+
+   Simply run this script as ./prepareScreen in the same directory as the 
+   other files
+"""   
+
 A = ["WC0001_L", "WC10-10_T_L"]
 B = ["W100_L", "W110_L"]
 
@@ -16,6 +35,7 @@ name_B = ["100", "110"]
 
 l = 1
 n = 12; m = 12
+total_nr = 5000
 
 for i, i_item in enumerate(A):
     for ii, ii_item in enumerate(B):
@@ -36,15 +56,20 @@ for i, i_item in enumerate(A):
         q.changeBaseElements(change = {"from": "W", "to": "W2", "mass": 183.84}, cell = 2)
 
         """Hexplot all combinations and save fig"""
-        #q.hexPlotCombinations(save = "SB_hexbin_asr.pdf")
+        q.hexPlotCombinations(save = "SB_hexbin_asr.pdf")
 
         """Find 5000 matches given a fit following (min_strain) to (min_strain,min_atoms)"""
-        C, E = q.getAtomStrainMatches(matches = 5000)
+        C, E = q.getAtomStrainMatches(matches = total_nr)
         ratio = q.getAtomStrainRatio(const = C, exp = E)
         q.indexSortInterfaces(np.argsort(ratio))
 
+        """Keep only the first 5000 interfaces"""
+        keep = np.zeros(q.atoms.shape[0], dtype = bool)
+        keep[:total_nr] = True
+        q.deleteInterfaces(keep)
+
         """Plot the matches"""
-        #q.plotCombinations(const = C, exp = E, save = "SB_combinations.png", format = "png", dpi = 500)
+        q.plotCombinations(const = C, exp = E, save = "SB_combinations.png", format = "png", dpi = 500)
 
         """Save interfaces to .pkl file"""
         fname = "%i_Interfaces_%s_%s_%s_%ix%i_lammps.pkl" % (l, name_A[i], "C", name_B[ii], n, m)
@@ -52,8 +77,8 @@ for i, i_item in enumerate(A):
         l += 1
 
         """Export a single interface to test"""
-        #q.exportInterface(idx = 2, d = 2.1, z_1 = 3, z_2 = 3, translation = 2, surface = "10-10",\
-        #                      vacuum = 10, verbose = 1)
+        q.exportInterface(idx = 2, d = 2.1, z_1 = 3, z_2 = 3, translation = 2, surface = "10-10",\
+                              vacuum = 10, verbose = 1)
 
         """Swap elements in cell_1 to change the termination"""
         q.changeBaseElements(swap = {"swap_1": "W1", "swap_2": "C"}, cell = 1)
@@ -64,5 +89,5 @@ for i, i_item in enumerate(A):
         l += 1
 
         """Export a single interface to test"""
-        #q.exportInterface(idx = 2, d = 2.3, z_1 = 3, z_2 = 3, translation = 3, surface = "10-10",\
-        #                      vacuum = 10, verbose = 1)
+        q.exportInterface(idx = 2, d = 2.3, z_1 = 3, z_2 = 3, translation = 3, surface = "10-10",\
+                              vacuum = 10, verbose = 1)
