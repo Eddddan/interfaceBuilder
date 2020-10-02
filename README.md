@@ -3,8 +3,17 @@
 Scripts used to build interfaces from initial atomistic structures.
 The approach is the one developed by the authors in 
 [1] J. Phys.: Condens. Matter 29 (2017) 185901 (7pp)
+Beyond interface discovery and generation a lot of functionality
+for analyzing the discovered interfaces are included.
  
 To test building a collection of interfaces do the following
+
+Import the module and the pieces needed
+ 
+from interfaceBuilder import structure
+from interfaceBuilder import interface
+
+Then build two structures by writing
 
 a = structure.Structure(load_from_input = "WC0001_L")
 
