@@ -12,6 +12,7 @@ To test building a collection of interfaces do the following
 Import the module and the pieces needed
  
 from interfaceBuilder import structure
+
 from interfaceBuilder import interface
 
 Then build two structures by writing
