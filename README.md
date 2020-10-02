@@ -3,6 +3,7 @@
 Scripts used to build interfaces from initial atomistic structures.
 The approach is the one developed by the authors in 
 [1] J. Phys.: Condens. Matter 29 (2017) 185901 (7pp)
+
 Beyond interface discovery and generation a lot of functionality
 for analyzing the discovered interfaces are included.
  
