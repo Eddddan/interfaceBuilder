@@ -1,10 +1,12 @@
+#!/usr/bin/env python3
 
-import inputs
-import file_io
-import utils as ut
 import numpy as np
 import matplotlib.pyplot as plt
 
+from interfaceBuilder import interface
+from interfaceBuilder import file_io
+from interfaceBuilder import inputs
+from interfaceBuilder import utils as ut
 
 """Set some plotting defaults"""
 plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium",\
@@ -119,7 +121,7 @@ class Structure():
             """Else simply assign the type_i value as placeholder"""
             self.mass = type_i
 
-        self.sortStructure()
+        self.sortStructure(verbose = 0)
 
 
     def sortStructure(self, sort = "type", reset_idx = False, verbose = 1):

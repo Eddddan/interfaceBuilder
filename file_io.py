@@ -2,8 +2,8 @@
 
 import sys
 import numpy as np
-import utils as ut
 
+from interfaceBuilder import utils as ut
 
 def len2mat(vec, ang, prec = 10):
     """

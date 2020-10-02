@@ -1,10 +1,19 @@
+#!/usr/bin/env python3
 
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
+"""File containing utility functions for use in the interfaceBuilder code"""
+
+
 def loadInterfaces(filename, verbose = 1):
-    """Function for loading an interface connection saved to a .pkl file"""
+    """Function for loading an interface collection saved in a .pkl file
+
+    filename = str, Name of the file to load
+
+    verbose = int, Print extra information, Deault = 1
+    """
 
     with open(filename, "rb") as rf:
         obj = pickle.load(rf)
@@ -16,13 +25,38 @@ def loadInterfaces(filename, verbose = 1):
     return obj
 
 
-
-
-
-
 def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
                      trace = 0, verbose = 1, current_iter = 0,\
                      max_iter = 500, tol = 1e-8, endpoint = "under"):
+    """Basic function to iteratively find desiered number of interfaces
+    based on a relation between atoms and strain atoms - C * strain ** E
+    Used recursively until the correct number are found or stop critera
+    have been met
+
+    x = int, Atoms
+
+    y = float, Strain
+
+    current = int, Current matches found
+
+    C = float, Value for C
+    
+    E = float, Value for E
+    
+    dC = float, modifyer to C per step
+
+    trace = int, Counter for the number of steps in the same direction
+
+    verbose = int, Print extra information, Default = 1
+
+    max_iter = int, Max number of recursiv iterations
+
+    tol = float, Tolerance for aborting if other criteria is not met
+
+    endpoint = str("over"/"under"), If aborted due to tolerance match
+    then this determines if the results will include as close to 
+    but below the specified matches or above the specified matches
+    """
 
     done = "Fail"
     current = np.sum((y - C * x ** E) < 0)
@@ -79,10 +113,27 @@ def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
     return C, E, current, done, current_iter
 
 
-
 def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.4],\
                    lw = 0.5):
-    """Function for adding a lattice grid when plotting interfaces"""
+    """Function for adding a lattice grid when plotting interfaces
+    
+    lat = array([2,2] or [3,3]), Lattice to overlay
+
+    latRep = array([2,2]), Repetitions of the base lattice for the 
+    plot teh overlay will be inposed on
+
+    hAx = axes handle, Handle of the axis object where the lattice is to 
+    be plotted
+
+    rot = float, Rotation of the lattice in degrees
+
+    ls = string(<valid_linestyle>), Valid matplotlib linestyle string to use
+    when plotting the lattice
+
+    c = <valid_color>, Valid matplotlib color specifier for the lattice
+
+    lw = float, Line width of the lattice
+    """
 
     """Pick out the a, b, x, y part of the lattice"""
     lat = lat[0:2, 0:2]
@@ -94,6 +145,7 @@ def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.4],\
 
     lat = np.matmul(R, lat)
 
+    """Pick out the cell vectors"""
     a1 = lat[0:2, [0]]
     a2 = lat[0:2, [1]]
 
@@ -101,6 +153,7 @@ def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.4],\
     scale[0:2, 0:2] = latRep
     scale[:, 2] = np.sum(scale[0:2, 0:2], axis = 1)
 
+    """Check how big the lattice overlay needs to be"""
     nx_lo = np.min(scale[0, :]) 
     nx_hi = np.max(scale[0, :])
     ny_lo = np.min(scale[1, :])
@@ -112,6 +165,7 @@ def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.4],\
     x = a1 * nX
     y = a2 * nY
 
+    """Plot the grid"""
     xGrid = np.tile(x[0, [0, -1]], (y.shape[1], 1)) + y[[0], :].T
     yGrid = np.tile(x[1, [0, -1]], (y.shape[1], 1)) + y[[1], :].T
     hAx.plot(xGrid.T, yGrid.T, color = c, linewidth = lw, ls = ls)
@@ -121,9 +175,17 @@ def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.4],\
     hAx.plot(xGrid.T, yGrid.T, color = c, linewidth = lw, ls = ls)
 
 
-
 def infoPrint(string, sep = "=", sep_before = True, sep_after = True,\
               space_before = False, space_after = False):
+    """Function for standardized print out of information
+
+    string = str, String to be printed
+
+    sep_before/after = True/False, Print separator line before/after string
+
+    space_before/after = Print space before/after string
+    """
+
     if space_before: print("")
     if sep_before: print(sep * len(string))
     print(string)
@@ -131,9 +193,17 @@ def infoPrint(string, sep = "=", sep_before = True, sep_after = True,\
     if space_after: print("")
     
 
-
 def align(base, axis = 0, align_to = [1, 0], verbose = 1):
-    """Function for aligning i_axis to cartesian align_to axes"""
+    """Function for aligning i_axis to cartesian align_to axes
+
+    base = array([2,2] or [3,3]), Base to align
+
+    axis = int(0/1), Base axis to align
+
+    align_to = array([2,]), Cartesian xy axis to align base to
+
+    verbose = int, Print extra information
+    """
 
     norm_1 = np.linalg.norm(base[0:2, axis])
     norm_2 = np.linalg.norm(align_to[0:2])
@@ -142,6 +212,7 @@ def align(base, axis = 0, align_to = [1, 0], verbose = 1):
     mat[:, 0] = base[0:2, axis]
     mat[:, 1] = align_to[0:2]
 
+    """Calculate the angle between base and supplied axis"""
     ang = np.arccos(np.dot(base[0:2, axis], align_to[0:2]) / (norm_1 * norm_2))
 
     if np.linalg.det(mat) > 0:
@@ -163,13 +234,19 @@ def align(base, axis = 0, align_to = [1, 0], verbose = 1):
 
 
 def getRotMatrix(ang, dim = 2, verbose = 1):
-    """Function for getting the rotation matrix for angle ang"""
+    """Function for getting the rotation matrix for angle ang
+    
+    ang = float, Angles in radians
+
+    verbose = int, Print extra information
+    """
 
     if verbose > 0:
         string = "Returning %iD rotation matrix for angle %.2f deg"\
                  % (dim, np.rad2deg(ang))
         infoPrint(string)
 
+    """Build rotation matrix"""
     R = np.array([[np.cos(ang), -np.sin(ang), 0],\
                   [np.sin(ang),  np.cos(ang), 0],\
                   [          0,            0, 1]])
@@ -179,7 +256,12 @@ def getRotMatrix(ang, dim = 2, verbose = 1):
 
 def getCellAngle(base, verbose = 1):
     """Function for returning the cell angle of a specific base.
-       Angle + for right handed base and - for left handed base"""
+    Angle + for right handed base and - for left handed base
+       
+    base = array([2,2] or [3,3]), Base to calculate the angles for
+
+    verbose = int, Print extra information
+    """
 
     a1 = base[0:2, 0]
     a2 = base[0:2, 1]
@@ -196,9 +278,15 @@ def getCellAngle(base, verbose = 1):
     return ang
 
 
-
 def center(base1, base2, verbose = 1):
-    """Function for centering base2 around base1, in z direction"""
+    """Function for centering base2 around base1, in z direction
+
+    base1 = array([2,2] or [3,3]), First base
+
+    base2 = array([2,2] or [3,3]), Base to center around base1
+
+    verbose = int, Print extra information
+    """
 
     base2, ang = align(base2, align_to = base1[0:2, 0], verbose = False)
     ang_1 = getCellAngle(base1, verbose = verbose)
@@ -216,9 +304,13 @@ def center(base1, base2, verbose = 1):
     return new_base, ang_tot
 
 
-
 def getCenter(base, verbose = 1):
-    """Get the center point of the base"""
+    """Get the center point of the base
+
+    base = array([2,2] or [3,3])
+
+    verbose = int, Print extra information
+    """
 
     base = base[0:2, 0:2]
     center = np.sum(base, axis = 1) / 2
@@ -230,9 +322,15 @@ def getCenter(base, verbose = 1):
     return center
 
 
-
 def rotate(vec, ang, verbose = 1):
-    """Function for rotating vectors 2D/3D, around z axis"""
+    """Function for rotating vectors 2D/3D, around z axis
+
+    vec = array([2,] or [3,]), Vector to rotate
+
+    ang = flaot, Angles in radians
+
+    verbose = int, Print extra information
+    """
 
     R = np.array([[np.cos(ang), -np.sin(ang), 0],\
                   [np.sin(ang),  np.cos(ang), 0],\
@@ -250,10 +348,13 @@ def rotate(vec, ang, verbose = 1):
     return vec
 
 
-
 def calcStrains(a, b):
     """a is the unchanged bottom cell (target). b is the top
-    cell that is to be strained to match a"""
+    cell that is to be strained to match a
+
+    a, b = array([N,2,2]), N stacks of [2,2] cell vectors (x,y)
+    to be matched against eachother 
+    """
     
     """Angle between the first cell vector and cartesian x-axis"""
     aRad = np.arccos(a[:, 0, 0] / np.linalg.norm(a[:, :, 0], axis = 1))
@@ -286,9 +387,12 @@ def calcStrains(a, b):
     return eps_11, eps_22, eps_12, eps_mas
 
 
-
 def getAngles(a, b):
-    """Function for finding the angle between vectors"""
+    """Function for finding the angles between vectors
+
+    a, b = array([N, 2] or [N, 3]), N stacks of vectors to calculate
+    the angles for
+    """
     
     ang_ab = np.arccos(np.sum(a * b, axis = 1) /\
                       (np.linalg.norm(a, axis = 1) *\
@@ -297,14 +401,19 @@ def getAngles(a, b):
     return ang_ab
 
 
-
 def extendCell(base, rep, pos, spec, mass):
     """Function for extending a unitcell.
-       base - base for the cell
-       rep  - [xLo, xHi, yLo, yHi, zLo, zHi]
-       pos  - positions, cartesian in - cartesian out
-       spec - Atomic species
-       mass - Atomic masses"""
+       
+    base - base for the cell
+    
+    rep  - [xLo, xHi, yLo, yHi, zLo, zHi]
+    
+    pos  - positions, cartesian in - cartesian out
+    
+    spec - Atomic species
+    
+    mass - Atomic masses
+    """
        
 
     """Convert positions to direct coordinates"""
@@ -345,7 +454,14 @@ def extendCell(base, rep, pos, spec, mass):
 
 
 def getTranslation(translation, surface, verbose = 1):
-    """Function for getting translation vectors for specific surface"""
+    """Function for getting translation vectors for specific surface
+
+    translation = int, Specifier for the particular transltion of interest
+
+    surface = str("0001" / "10-10"), Specifier for the type of surface
+
+    verbose = int, Print extra information
+    """
 
     if not isinstance(translation, (int, np.integer)):
         return np.array([0, 0, 0]), "Top"
@@ -397,17 +513,31 @@ def getTranslation(translation, surface, verbose = 1):
 
 
 def getNrTranslations(surface):
-    """Get the total number of deafult translations for the specified surface"""
+    """Get the total number of deafult translations for the specified surface
+
+    surface = str("0001" / "10-10"), Keyword for specific surface
+    """
 
     if surface == "0001":
+        return 4
+    elif surface == "10-10":
         return 4
     else:
         return 0
 
 
-
 def save_fig(filename = "Interface_figure.pdf", format = "pdf", dpi = 100, verbose = 1):
-    """Function for saving figures"""
+    """Function for saving figures
+
+    filename = str, Name to save teh file to
+
+    format = <valid_format>, Any valid matplotlib save format
+
+    dpi = int, DPI when saving the figure
+
+    verbose = int, Print extra information
+    """
+
     if not filename.endswith(".%s" % format):
         filename += ".%s" % format
     plt.savefig(filename, format = format, dpi = dpi)
@@ -417,12 +547,14 @@ def save_fig(filename = "Interface_figure.pdf", format = "pdf", dpi = 100, verbo
 
 
 def load_NN_array(filename):
-    """Function for loading data from an NN array"""
+    """Function for loading data from an NN array
+
+    filename = str, name of the file containing the NN data
+    """
     
     with open(filename, 'r') as f:
         data = np.loadtxt(f)
 
-    #si = np.lexsort((data[:, 1], data[:, 0]))
 
     """Unpack the first 3 fields"""
     interface = data[:, 0].astype(np.int)
@@ -440,7 +572,12 @@ def load_NN_array(filename):
 
 
 def get_NN_count(filename, cutoff = 3.8):
-    """Function for getting the nr of NN within a specified cutoff"""
+    """Function for getting the nr of NN within a specified cutoff
+
+    filename = str, name of the file containing the NN data
+
+    cutoff = float, Length cutoff for the NN count
+    """
 
     mean, std, i_data, t_data, e_data = load_NN_array(filename)
 
@@ -450,10 +587,25 @@ def get_NN_count(filename, cutoff = 3.8):
     return count
     
 
-
 def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
-            format = "pdf", dpi = 100, verbose = 1, **kwarg):
-    """Function for plotting NN data from NN arrays"""
+            format = "pdf", dpi = 100, verbose = 1, **kwargs):
+    """Function for plotting NN data from NN arrays
+
+    filename = str, name of the file containing the NN data
+
+    idx = int, Plot these indicies
+
+    row, col, N = row, column and number of the plot if used in subplot
+
+    save = True/False/str, Save figure with standard name or with 
+    specified string as filename
+
+    dpi/format = int/<valid_format>, Format and dpi for saving
+
+    verbose = int, Print extra information
+
+    **kwargs = <valid_kwargs>, Valid matplotlib errorbar kwargs 
+    """
 
     """Set some defaults"""
     if isinstance(idx, (np.integer, int)): idx = np.array([idx])
@@ -471,12 +623,12 @@ def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
     hAx = plt.subplot(row, col, N)
 
     """Set some defaults"""
-    ls = kwarg.pop("linestyle", "--")
-    lw = kwarg.pop("linewidth", 0.5)
-    m = kwarg.pop("marker", "o")
-    ms = kwarg.pop("markersize", 4)
-    cs = kwarg.pop("capsize", 2)
-    elw = kwarg.pop("elinewidth", 1)
+    ls = kwargs.pop("linestyle", "--")
+    lw = kwargs.pop("linewidth", 0.5)
+    m = kwargs.pop("marker", "o")
+    ms = kwargs.pop("markersize", 4)
+    cs = kwargs.pop("capsize", 2)
+    elw = kwargs.pop("elinewidth", 1)
 
     for i in idx:
         for t in trans:
@@ -485,7 +637,7 @@ def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
 
             hAx.errorbar(x, y = y[0, :], yerr = yerr[0, :], linestyle = ls, linewidth = lw,\
                          marker = m, markersize = ms, capsize = cs, elinewidth = elw,\
-                         label = "I-%i, T-%i" % (i, t), **kwarg)
+                         label = "I-%i, T-%i" % (i, t), **kwargs)
 
     hAx.set_xlabel("Neighbor")
     hAx.set_ylabel("Distance, $(\AA)$")
