@@ -1109,6 +1109,14 @@ class Interface():
                      % (keep.shape[0], keep.shape[0] - np.sum(keep), np.sum(keep))
             ut.infoPrint(string)
 
+        """Return if no interfaces are found (if a specific match is wronghanded)"""
+        if np.sum(keep) == 0:
+            string1 = "No Interfaces found to be linearly independedt or right handed. "
+            string2 = "If a specific match is to be constructed swap M and N or target."
+            ut.infoPrint(string1, sep_after = False)
+            ut.infoPrint(string2, sep_before = False)
+            return
+
         """Remove the lin-dep/left handed combinations before calculating the strain"""
         F = F[keep]
         D = D[keep]
