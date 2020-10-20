@@ -66,8 +66,9 @@ i50 = i.getAtomStrainIdx(match = 50)
 
 i.plotCombinations(const = C, exp = E, mark = i50)
 
-Plots the same combination plot as before but with all interfaces above/below the C * <nr_atoms> ** E
-ratio separated and the interfaces with indices in array i50 highlighted.
+Plots the same combination plot as before but with all interfaces above/below
+<nr_atoms> - C * |strain| ** E ratio separated 
+and the interfaces with indices in array i50 highlighted.
 
 i.removeByAtomStrain(keep = 5000)
 
