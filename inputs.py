@@ -3,6 +3,24 @@
 import numpy as np
 
 def getInputs(lattice):
+    """Add predefined cell information to enable loading into structure objects
+
+    add at the end;
+    
+    elif lattice == <speciy_name>:
+
+        cell = np.ndarray[3, 3] #Unit cell
+
+        pos = np.ndarray[[x, y, z]] #x, y, z positions each row one atom
+
+        spec = np.chararray(shape = <nr_atoms>, itemsize = 2) #Chararray to hold elements
+        spec[atom_type_1] = <atom_type_1> #Add element information to correct atom index
+        spec[atom_type_2] = <atom_type_2>
+        etc...
+
+        mass = np.ndarray[<nr_atoms>] #Array of atom masses
+
+    """
 
     if lattice == "WC0001_L":
         """HCP WC Lattice with 0001 surface relaxed using LAMMPS"""

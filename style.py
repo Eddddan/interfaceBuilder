@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+import matplotlib.pyplot as plt
+
+"""Set some plotting defaults"""
+plotParams = {"font.size": 10,\
+              "font.family": "serif",\
+              "axes.titlesize": "medium",\
+              "axes.labelsize": "small",\
+              "axes.labelweight": "normal",\
+              "axes.titleweight": "semibold",\
+              "patch.linewidth": 0.8,\
+              "xtick.direction": "in",\
+              "xtick.labelsize": "small",\
+              "ytick.direction": "in",\
+              "ytick.labelsize": "small",\
+              "figure.titlesize": "medium",\
+              "figure.titleweight": "semibold",\
+              "lines.linewidth": 1,\
+              "lines.marker": "None",\
+              "lines.markersize": 2,\
+              "lines.markerfacecolor": "None",\
+              "legend.edgecolor": "0",\
+              "legend.framealpha": 1,\
+              "legend.fontsize": "small"}
+
+plt.rcParams.update(**plotParams)

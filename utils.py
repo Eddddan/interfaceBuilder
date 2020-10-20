@@ -15,14 +15,19 @@ def loadInterfaces(filename, verbose = 1):
     verbose = int, Print extra information, Deault = 1
     """
 
-    with open(filename, "rb") as rf:
-        obj = pickle.load(rf)
+    try:
+        with open(filename, "rb") as rf:
+            obj = pickle.load(rf)
 
-    if verbose > 0:
-        string = "Loading data from: %s" % filename
+        if verbose > 0:
+            string = "Loading data from: %s" % filename
+            infoPrint(string)
+
+        return obj
+    except FileNotFoundError as e:
+        string = "Error: File <%s> not found" % filename
         infoPrint(string)
-
-    return obj
+        return None
 
 
 def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
@@ -458,7 +463,13 @@ def getTranslation(translation, surface, verbose = 1):
 
     translation = int, Specifier for the particular transltion of interest
 
-    surface = str("0001" / "10-10"), Specifier for the type of surface
+    surface = str("0001" / "10-10" / "B100"), Specifier for the type of surface
+    -------------------
+    0001  = Basal plane of HCP
+    10-10 = Prismatic plane of HCP
+    B100  = 100 surface of BCC
+    B110  = 110 surface of BCC
+    F100  = 100 surface of FCC
 
     verbose = int, Print extra information
     """
@@ -503,6 +514,79 @@ def getTranslation(translation, surface, verbose = 1):
         elif translation == 3:
             site = "Bridge-Off"
             T = np.array([0.5, 0, 0])
+
+        elif translation > 3:
+            site = "Translation out of range"
+            T = np.array([0, 0, 0])
+
+    elif surface.lower() == "b100":
+        if translation == 0:
+            site = "Top-Corner"
+            T = np.array([0, 0, 0])
+
+        elif translation == 1:
+            site = "Top-Center"
+            T = np.array([0.5, 0.5, 0])
+
+        elif translation == 2:
+            site = "Bridge"
+            T = np.array([0.5, 0, 0])
+
+        elif translation > 2:
+            site = "Translation out of range"
+            T = np.array([0, 0, 0])
+            
+    elif surface.lower() == "b110":
+        if translation == 0:
+            site = "Bridge-Top"
+            T = np.array([0, 0, 0])
+
+        elif translation == 1:
+            site = "Bridge-Off"
+            T = np.array([0.5, 0.5, 0])
+
+        elif translation == 2:
+            site = "Top"
+            T = np.array([0.5, 0, 0])
+
+        elif translation > 2:
+            site = "Translation out of range"
+            T = np.array([0, 0, 0])
+
+    elif surface.lower() == "f100":
+        if translation == 0:
+            site = "Top"
+            T = np.array([0, 0, 0])
+
+        elif translation == 1:
+            site = "Hollow"
+            T = np.array([0.5, 0, 0])
+
+        elif translation == 2:
+            site = "Bride"
+            T = np.array([0.25, 0.25, 0])
+
+        elif translation > 2:
+            site = "Translation out of range"
+            T = np.array([0, 0, 0])
+
+    elif surface.lower() == "f110":
+        if translation == 0:
+            site = "Top"
+            T = np.array([0, 0, 0])
+
+        elif translation == 1:
+            site = "Bridge"
+            T = np.array([0.5, 0, 0])
+
+        elif translation == 2:
+            site = "Hollow"
+            T = np.array([0.5, 0.5, 0])
+
+        elif translation > 2:
+            site = "Translation out of range"
+            T = np.array([0, 0, 0])
+
             
     if verbose > 0:
         string = "Surface: %s | Translation made to site: %s"\
@@ -515,13 +599,21 @@ def getTranslation(translation, surface, verbose = 1):
 def getNrTranslations(surface):
     """Get the total number of deafult translations for the specified surface
 
-    surface = str("0001" / "10-10"), Keyword for specific surface
+    surface = str("0001"/"10-10"/"b100"/"b110"/"f100"), Keyword for specific surface
     """
 
-    if surface == "0001":
+    if surface.lower() == "0001":
         return 4
-    elif surface == "10-10":
+    elif surface.lower() == "10-10":
         return 4
+    elif surface.lower() == "b100":
+        return 3
+    elif surface.lower() == "b110":
+        return 3
+    elif surface.lower() == "f100":
+        return 3
+    elif surface.lower() == "f110":
+        return 3
     else:
         return 0
 

@@ -8,15 +8,15 @@ from interfaceBuilder import file_io
 from interfaceBuilder import inputs
 from interfaceBuilder import utils as ut
 
-"""Set some plotting defaults"""
-plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium",\
-              "axes.labelsize": "small", "axes.labelweight": "normal",\
-              "axes.titleweight": "semibold", "legend.fontsize": "small",\
-              "xtick.labelsize": "small", "ytick.labelsize": "small",\
-              "figure.titlesize": "medium", "figure.titleweight": "semibold",\
-              "lines.linewidth": 1, "lines.marker": "None", "lines.markersize": 2,\
-              "lines.markerfacecolor": "None", "legend.framealpha": 1}
-plt.rcParams.update(**plotParams)
+#"""Set some plotting defaults"""
+#plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium",\
+#              "axes.labelsize": "small", "axes.labelweight": "normal",\
+#              "axes.titleweight": "semibold", "legend.fontsize": "small",\
+#              "xtick.labelsize": "small", "ytick.labelsize": "small",\
+#              "figure.titlesize": "medium", "figure.titleweight": "semibold",\
+#              "lines.linewidth": 1, "lines.marker": "None", "lines.markersize": 2,\
+#              "lines.markerfacecolor": "None", "legend.framealpha": 1}
+#plt.rcParams.update(**plotParams)
 
 
 class Structure():
@@ -41,6 +41,8 @@ class Structure():
                  load_from_file = None,\
                  load_from_input = None,\
                  format = None):        
+        
+
 
         if load_from_file is not None:
             cell, pos, type, idx, mass = file_io.readData(load_from_file, format)
@@ -125,7 +127,16 @@ class Structure():
 
 
     def sortStructure(self, sort = "type", reset_idx = False, verbose = 1):
-        
+        """Function for sorting the structure
+
+        sort = str("type"/"index"), Sort by type-z-y-x or sort by index as loaded
+        from simulation file.
+
+        reset_idx = bool, If True then reset the index of the structure
+
+        verbose = int, Print extra information
+        """
+
         if sort.lower() == "type":
             """Sorts the structure based on type_i then z then y then x"""
             si = np.lexsort((self.pos[:, 0], self.pos[:, 1], self.pos[:, 2], self.type_i))
@@ -156,7 +167,8 @@ class Structure():
 
            combine = list, index of groups to combine
 
-           element = str, element for the new combined group"""
+           element = str, element for the new combined group
+        """
 
         name = np.chararray(1, itemsize = 2)
         name[0] = element
@@ -185,7 +197,10 @@ class Structure():
 
 
     def resetIndex(self, verbose = 1):
-        """Function for reseting the atomic indicies"""
+        """Function for reseting the atomic indicies
+
+        verbose = int, Print extra information
+        """
 
         self.idx = np.arange(self.pos.shape[0])
         if verbose > 0:
@@ -194,6 +209,7 @@ class Structure():
 
 
     def printStructure(self):
+        """Function to print formated output of the structure"""
 
         string = "%s" % self.filename
         print("\n%s" % string)
@@ -229,6 +245,8 @@ class Structure():
         in the align parameter. Dim in direct coordinates.
                           
         align = [float, float, float], cartesian axis to align dim to. Align in cartesian coordinates.
+
+        verbose = int, Print extra information
         """
 
         if align[2] != 0:
@@ -263,12 +281,10 @@ class Structure():
         self.pos = np.matmul(R, self.pos.T).T
 
 
-
     def getBoxLengths(self):
         """Function for getting the box side lengths in orthogonal x,y,z"""
 
         return self.cell[np.identity(3, dtype = bool)]
-
 
 
     def getAtoms(self, mode):
@@ -288,16 +304,26 @@ class Structure():
         idx    - [list of all atomic indices to include]
         """
 
-        print("Get atoms")
+        print("Not defined")
         
-
-
 
     def getNeighborDistance(self, idx = None, r = 6, idx_to = None,\
                             extend = np.array([1, 1, 1], dtype = bool),\
                             verbose = 1):
         """Function for getting the distance between specified atoms within
-           radius r"""
+        radius r
+
+        idx = int, [int,], Index from which to calculate nearest neighbors
+
+        r = float, Radius or NN calculation
+
+        idx_to = int, [int,], Calculate the NN considering only these atoms
+
+        extend = np.ndarray([1/0, 1/0, 1/0]), Extend the cell if needed in
+        specified x, y, z directions
+
+        verbose = int, Print extra information
+        """
 
         """Check some defaults"""
         if idx is None: idx = np.arange(self.pos.shape[0])
@@ -389,7 +415,19 @@ class Structure():
                             verbose = 1, limit = np.array([5, 5, 5]),\
                             extend = np.array([1, 1, 1], dtype = bool)):
         """Function for getting index and distance to nearest neighbors 
-           of specified atoms"""
+        of specified atoms
+
+        idx = int, [int,], Index from which to calculate nearest neighbors
+
+        NN = int, Number of nearest neighbors to keep
+
+        idx_to = int, [int,], Calculate the NN considering only these atoms
+
+        limit = np.ndarray([float, float, float]), Limit around the maximum extent
+        of the included atoms, to speed up calculations
+
+        verbose = int, Print extra information
+        """
 
         """Check some defaults"""
         if idx is None: idx = np.arange(self.pos.shape[0])
@@ -489,7 +527,22 @@ class Structure():
                                      verbose = 1, limit = np.array([5, 5, 5]),\
                                      extend = np.array([1, 1, 1], dtype = bool)):
         """Function for getting nearest neighbors around specified atoms to 
-           specified atoms collected as an average with a standard deviation"""
+        specified atoms collected as an average with a standard deviation
+
+        idx = int, [int,], Index from which to calculate nearest neighbors
+
+        NN = int, Number of nearest neighbors to keep
+
+        idx_to = int, [int,], Calculate the NN considering only these atoms
+
+        limit = np.ndarray([float, float, float]), Limit around the maximum extent
+        of the included atoms, to speed up calculations
+
+        extend = np.ndarray([1/0, 1/0, 1/0]), Extend the cell if needed in
+        specified x, y, z directions
+
+        verbose = int, Print extra information
+        """
 
         """Check some defaults"""
         if idx is None: idx = np.arange(self.pos.shape[0])
@@ -529,8 +582,34 @@ class Structure():
 
     def plotNNC(self, idx, idx_to = None, NN = 8, verbose = True,\
                handle = False, row = 1, col = 1, N = 1, save = False,\
-               format = "pdf", dpi = 100, legend = None, **kwarg):
-        """Function for plotting a nearest neighbor collection with std"""
+               format = "pdf", dpi = 100, legend = None, **kwargs):
+        """Function for plotting a nearest neighbor collection with std
+
+        idx = int, [int,], Index from which to calculate nearest neighbors
+
+        NN = int, Number of nearest neighbors to keep
+
+        idx_to = int, [int,], Calculate the NN considering only these atoms
+
+        handle = bool, If True only prepare the axis don't draw the plot
+
+        row = int, Rows if used in subplots
+
+        col = int, Columns if used in subplots
+
+        N = int, Nr of plot if used in subplots
+
+        save = bool or str, Name to save the file to or save to default name
+        if True
+
+        format = valid matplotlib format, Format to save the plot in
+
+        dpi = int, DPI used when saving the plot
+
+        legend = [str,], Legend for the different entries
+
+        **kvargs = valid matplotlib errorbar kwargs
+        """
 
         lbl_1 = None
         if idx is None:
@@ -584,12 +663,12 @@ class Structure():
             hFig = plt.figure()
 
         """Set some defaults"""
-        ls = kwarg.pop("linestyle", "--")
-        lw = kwarg.pop("linewidth", 0.5)
-        m = kwarg.pop("marker", "o")
-        ms = kwarg.pop("markersize", 3)
-        cs = kwarg.pop("capsize", 2)
-        elw = kwarg.pop("elinewidth", 1)
+        ls = kwargs.pop("linestyle", "--")
+        lw = kwargs.pop("linewidth", 0.5)
+        m = kwargs.pop("marker", "o")
+        ms = kwargs.pop("markersize", 3)
+        cs = kwargs.pop("capsize", 2)
+        elw = kwargs.pop("elinewidth", 1)
 
         hAx = plt.subplot(row, col, N)
         label = "_ignore"
@@ -607,7 +686,7 @@ class Structure():
                 label = "%i -> %2s" % (l_idx[i], lbl_2[i])
 
             hAx.errorbar(x[i], y[i], yerr = s[i], linestyle = ls, marker = m, capsize = cs,\
-                         elinewidth = elw, markersize = ms, linewidth = lw, label = label, **kwarg)
+                         elinewidth = elw, markersize = ms, linewidth = lw, label = label, **kwargs)
 
         hAx.set_xlabel("Neighbor")
         hAx.set_ylabel("Distance, $(\AA)$")
@@ -633,8 +712,34 @@ class Structure():
 
     def plotNN(self, idx, idx_to = None, NN = 8, verbose = True,\
                handle = False, row = 1, col = 1, N = 1, save = False,\
-               format = "pdf", dpi = 100, **kwarg):
-        """Function to plot the distances to the N nearest neighbors"""
+               format = "pdf", dpi = 100, **kwargs):
+        """Function to plot the distances to the N nearest neighbors
+
+        idx = int, [int,], Index from which to calculate nearest neighbors
+
+        NN = int, Number of nearest neighbors to keep
+
+        idx_to = int, [int,], Calculate the NN considering only these atoms
+
+        handle = bool, If True only prepare the axis don't draw the plot
+
+        row = int, Rows if used in subplots
+
+        col = int, Columns if used in subplots
+
+        N = int, Nr of plot if used in subplots
+
+        save = bool or str, Name to save the file to or save to default name
+        if True
+
+        format = valid matplotlib format, Format to save the plot in
+
+        dpi = int, DPI used when saving the plot
+
+        legend = [str,], Legend for the different entries
+
+        **kvargs = valid matplotlib errorbar kwargs
+        """
 
         if isinstance(idx, (np.integer, int)): idx = np.array([idx])
         if idx_to is None: idx_to = np.arange(self.pos.shape[0])
@@ -648,10 +753,10 @@ class Structure():
             hFig = plt.figure()
 
         """Set some defaults"""
-        ls = kwarg.pop("linestyle", "--")
-        lw = kwarg.pop("linewidth", 0.5)
-        m = kwarg.pop("marker", "o")
-        ms = kwarg.pop("markersize", 3)
+        ls = kwargs.pop("linestyle", "--")
+        lw = kwargs.pop("linewidth", 0.5)
+        m = kwargs.pop("marker", "o")
+        ms = kwargs.pop("markersize", 3)
 
         hAx = plt.subplot(row, col, N)
         for i in range(np.shape(distance)[0]):
@@ -682,7 +787,25 @@ class Structure():
                extend = np.array([1, 1, 1], dtype = bool), edges = False,\
                verbose = 1):
         """Function for getting the radial distribution function around and 
-        to specified atoms"""
+        to specified atoms
+
+        idx = int, [int,], Index from which to calculate nearest neighbors
+
+        idx_to = int, [int,], Calculate the NN considering only these atoms
+
+        r = float, Cut off used in the RDF
+
+        dr = float, bins size used in the RDF
+
+        bins = int, Alternative to dr, specify the total number of bins
+
+        extend = np.ndarray([1/0, 1/0, 1/0]), Allow the cell to be extended in
+        the specified x, y, z directions
+
+        edges = bool, Include both edges
+
+        verbose = int, Print extra information
+        """
 
         """Check some defaults"""
         if idx is None: idx = np.arange(self.pos.shape[0])
@@ -720,8 +843,45 @@ class Structure():
     def plotRDF(self, idx = None, idx_to = None, r = 6, dr = 0.1, bins = None,\
                 extend = np.array([1, 1, 1], dtype = bool), cumulative = False, legend = None,\
                 row = 1, col = 1, N = 1, handle = False, save = False, format = "pdf",\
-                dpi = 100, verbose = 1, **kwarg):
-        """Function for ploting the RDF and cumulative distribution"""
+                dpi = 100, verbose = 1, **kwargs):
+        """Function for ploting the RDF and cumulative distribution
+
+        idx = int, [int,], Index from which to calculate nearest neighbors
+
+        idx_to = int, [int,], Calculate the NN considering only these atoms
+
+        r = float, Cut off used in the RDF
+
+        dr = float, bins size used in the RDF
+
+        bins = int, Alternative to dr, specify the total number of bins
+
+        extend = np.ndarray([1/0, 1/0, 1/0]), Allow the cell to be extended in
+        the specified x, y, z directions
+
+        edges = bool, Include both edges
+
+        cumulative = bool, Add the cumulative RDF value to a right y-axis
+
+        legend = [str,] legend inputs
+
+        handle = bool, If True only prepare the axis don't draw the plot
+
+        row = int, Rows if used in subplots
+
+        col = int, Columns if used in subplots
+
+        N = int, Nr of plot if used in subplots
+
+        save = bool or str, Name to save the file to or save to default name
+        if True
+
+        format = valid matplotlib format, Format to save the plot in
+
+        dpi = int, DPI used when saving the plot
+
+        kwargs = valid matplotlib plot kwargs
+        """
         
         lbl_1 = None
         if idx is None:
@@ -790,9 +950,9 @@ class Structure():
             elif lbl_2 is not None:
                 label = "%i -> %2s" % (l_idx[i], lbl_2[i])
 
-            hL = hAx.plot(bin, item, linestyle = "-", label = label, **kwarg)
+            hL = hAx.plot(bin, item, linestyle = "-", label = label, **kwargs)
             if cumulative:
-                hAxR.plot(bin, yt[i], linestyle = "--", color = hL[-1].get_color(), **kwarg)
+                hAxR.plot(bin, yt[i], linestyle = "--", color = hL[-1].get_color(), **kwargs)
 
         hAx.set_xlabel("Radius, $\AA$")
         hAx.set_ylabel("Atoms / (Atom * Volume), ($1/\AA^3$)")
@@ -828,7 +988,18 @@ class Structure():
 
 
     def extendStructure(self, x = 1, y = 1, z = 1, reset_index = False, verbose = 1):
-        """Function for repeating the cell in x, y or z direction"""
+        """Function for repeating the cell in x, y or z direction
+
+        x = int, extend this many times
+
+        y = int, extend this many times
+
+        z = int, extend this many times
+
+        reset_index = bool, Reset the index after extending the structure
+
+        verbose = Print Extra information
+        """
 
         """Change to direct coordinates"""
         self.car2dir()
@@ -944,7 +1115,20 @@ class Structure():
 
     def getExtendedPositions(self, x = 0, y = 0, z = 0, idx = None,\
                            return_cart = True, verbose = 1):
-        """Function for retreving an extended set of positions"""
+        """Function for retreving an extended set of positions
+
+        x = int, times to extend the cell
+
+        y = int, times to extend the cell
+
+        z = int, times to extend the cell
+
+        idx = int, [int,], Index of atoms to include
+
+        return_cart = bool, Return the positions in cartesian coordinates
+
+        verbose = int, Print extra information
+        """
 
         if idx is None: idx = np.arange(self.pos.shape[0])
         if isinstance(idx, (np.integer, int)): idx = np.arange([idx])
@@ -1008,7 +1192,14 @@ class Structure():
 
 
     def writeStructure(self, filename = None, format = "lammps", verbose = 1):
-        """Function for writing the structure to specified file format"""
+        """Function for writing the structure to specified file format
+
+        filename = str(), Filename to write to
+
+        format = str("lammps"/"vasp"/"eon"/"xyz"), Format to write to
+
+        verbose = int, Print extra information
+        """
 
         if filename is None: 
             if self.filename is None:
