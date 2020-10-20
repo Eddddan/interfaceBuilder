@@ -1,39 +1,45 @@
 # interfaceBuilder
 
 Scripts used to build interfaces from initial atomistic structures.
-The approach is the one developed by the authors in 
+The approach for finding interfaces is the one developed by the authors in 
 [1] J. Phys.: Condens. Matter 29 (2017) 185901 (7pp)
 
 Beyond interface discovery and generation a lot of functionality
 for analyzing the discovered interfaces are included.
+
+They easiest way of working with the package and setting up interface combinations
+and analyzing data is from an ipython terminal. To get all base packages needed 
+to run this package use e.g. the anaconda distribution where all are included.
+Add the package to you path or start the ipython terminal in teh folder where 
+interfaceBuilder is keept.
  
 To test building a collection of interfaces do the following
-
 Import the module and the pieces needed
- 
-from interfaceBuilder import structure
 
-from interfaceBuilder import interface
+import interfaceBuilder as ib
 
 Then build two structures by writing
 
-a = structure.Structure(load_from_input = "WC0001_L")
+a = ib.structure.Structure(load_from_input = "W100_L")
 
-b = structure.Structure(load_from_input = "W100_L")
+b = ib.structure.Structure(load_from_input = "W110_L")
 
 This creates two structure files (a,b) containing the geometric information about
-the a cell (0001-WC) and the b cell (100-W). Load_from_input is just a shortcut 
+the a cell (100-W) and the b cell (110-W). Load_from_input is just a shortcut 
 to load the predefined cell information contained in the inputs file. Complete
 reading of input-files from usefull formats e.g. VASP/LAMMPS/EON is done be specifying
 structure.Structure(load_from_file = filename, format = format)
 
-i = interface.Interface(structure_a = a, structure_b = b)
+i = ib.interface.Interface(structure_a = a, structure_b = b)
 
 This creates the inital interface structure, but it is still empty at this point.
 
 i.matchCells()
 
-This creates all interface cell matches as specified by the various default input options.
+This creates all interface cell matches as specified by the various default input options. To check the defaults
+and the use of any function type the method with a ? to display the docstring.
+
+i.matchCells?
 
 i.printInterfaces(idx = range(50))
 
@@ -53,6 +59,25 @@ Plots the basis vectors of the first interface (as currently sorted) with base l
 i.plotCombinations()
 
 Plots mean absolute strain against nr of atoms in the interface or all interfaces
+
+C, E = i.getAtomStrainRatio(match = 2500)
+
+i50 = i.getAtomStrainIndex(match = 50)
+
+i.plotCombinations(const = C, exp = E, mark = i50)
+
+Plots the same combination plot as before but with all interfaces above/below the C * <nr_atoms> ** E
+ratio separated and the interfaces with indices in array i50 highlighted.
+
+i.removeByAtomStrain(keep = 5000)
+
+Removes all interaces except for 5000 interfaces below the same ratio as above but with the parameters adjusted
+to include 5000 interfaces.
+
+i.plotInterface(idx = 5, align_base = "no")
+
+Plots the cell vectors of interface with index 5, both top surface and bottom surfaces displayed just as 
+it was found when matched. 
 
 i.summerize(idx = 5)
 
@@ -82,3 +107,13 @@ someValues = np.random.random(500)
 i.plotProperty(x = "angle", y  = "other", other = someValues, z = "density", idx = range(500), colormap = "plasma")
 
 Plots angle against the custom set of values contained in the someValues array and supplied with the other keyword with the density once again colorcoded to the colormap. This is to allow any specially calculated property to be easily ploted against other paramerters. The length of the custom data must match the length of the idx parater or the total length of the interface dataset if idx is omitted.
+
+i.matchCells(M = [2, 0], N = [0, 3], target = [[2, 0], [1, 3]])
+
+Build the exact interface that takes M times the first cell vector in the top cell and N times the second
+cell vector in the top cell and mathes it against the target combination of the bottom cell vectors. Take care when using this functionality as only right handed combinations are keept, switch the N and M permutations 
+or the target permutaions if the program yells about it.
+
+i.plotInterface(idx = 0, align_base = "no")
+
+Displays the single created interface.
