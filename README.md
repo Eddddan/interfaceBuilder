@@ -62,7 +62,7 @@ Plots mean absolute strain against nr of atoms in the interface or all interface
 
 C, E = i.getAtomStrainRatio(match = 2500)
 
-i50 = i.getAtomStrainIndex(match = 50)
+i50 = i.getAtomStrainIdx(match = 50)
 
 i.plotCombinations(const = C, exp = E, mark = i50)
 
