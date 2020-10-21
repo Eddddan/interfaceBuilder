@@ -3,6 +3,7 @@
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
+from interfaceBuilder import interface
 
 """File containing utility functions for use in the interfaceBuilder code"""
 
@@ -23,7 +24,8 @@ def loadInterfaces(filename, verbose = 1):
             string = "Loading data from: %s" % filename
             infoPrint(string)
 
-        return obj
+            return obj
+
     except FileNotFoundError as e:
         string = "Error: File <%s> not found" % filename
         infoPrint(string)

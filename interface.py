@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from interfaceBuilder import structure
 from interfaceBuilder import utils as ut
@@ -18,7 +17,7 @@ class Interface():
     Including methods for analyzing them.
     """
 
-    def __init__(self, structure_a, structure_b):
+    def __init__(self, structure_a = None, structure_b = None):
         """Constructor, build an interface object using 2 structure objects as input
 
         structure_a = structure.Structure(), Bottom surface
@@ -36,7 +35,6 @@ class Interface():
         self.eps_mas = None
         self.atoms = None
         self.ang = None
-        self.translations = None
 
         """E_s1/A + E_s2/A - E_i/A(slabs (unstrained reference) - Interface)"""
         self.w_sep_c = None
@@ -54,16 +52,26 @@ class Interface():
         self.parameters = {"sigma_c_11": 0, "sigma_c_12": 0, "sigma_c_21": 0, "sigma_c_22": 0,\
                            "sigma_d_11": 0, "sigma_d_12": 0, "sigma_d_21": 0, "sigma_d_22": 0}
 
-        self.base_1 = structure_a.cell
-        self.base_2 = structure_b.cell
-        self.pos_1 = structure_a.pos
-        self.pos_2 = structure_b.pos
-        self.spec_1 = structure_a.type_n
-        self.spec_2 = structure_b.type_n
-        self.mass_1 = structure_a.mass
-        self.mass_2 = structure_b.mass
+        if structure_a is None or structure_b is None:
+            self.base_1 = None
+            self.base_2 = None
+            self.pos_1 = None
+            self.pos_2 = None
+            self.spec_1 = None
+            self.spec_2 = None
+            self.mass_1 = None
+            self.mass_2 = None
+        else:
+            self.base_1 = structure_a.cell
+            self.base_2 = structure_b.cell
+            self.pos_1 = structure_a.pos
+            self.pos_2 = structure_b.pos
+            self.spec_1 = structure_a.type_n
+            self.spec_2 = structure_b.type_n
+            self.mass_1 = structure_a.mass
+            self.mass_2 = structure_b.mass
+
         self.filename = None
-        #self.alt_base = []
         self.alt_base_1 = None
         self.alt_base_2 = None
 
@@ -996,6 +1004,11 @@ class Interface():
         asr_limit over or under the specified limit if a match cant be found.
         """
 
+        if self.base_1 is None:
+            string = "No base structures exist"
+            ut.infoPrint(string)
+            return
+
         """Get number of atoms per area (xy) in base cell 1 and 2"""
         rhoA = self.pos_1.shape[0] / np.abs(np.cross(self.base_1[0:2, 0], self.base_1[0:2, 1]))
         rhoB = self.pos_2.shape[0] / np.abs(np.cross(self.base_2[0:2, 0], self.base_2[0:2, 1]))
@@ -1796,12 +1809,6 @@ class Interface():
 
         mark = int or [int,], Mark the interfaces with these indices
 
-        m = valid matplotlib marker, Marker for all point except "mark"
-
-        mew = float, Markeredgewidth of plot markers
-
-        ms = float, Markersize of plot markers
-
         **kwargs = valid matplotlib plot properies
 
         save = bool or str, Save the figure to this name or to a default
@@ -1915,7 +1922,7 @@ class Interface():
         if handle: return
 
         for line in lines:
-            line.set_picker(3)
+            line.set_pickradius(2)
 
         anP = hAx.plot([], [], marker = 'o', ms = 5, color = 'm', mew = 2, mfc = 'None')
 
@@ -1978,7 +1985,7 @@ class Interface():
     def plotProperty(self, x, y, z = [], idx = None, col = 1, row = 1, N = 1, 
                      save = False, dpi = 100, format = "pdf", verbose = 1, handle = False,\
                      translation = None, title = None, other = None, ab = [],\
-                     m = "o", **kwargs):
+                     m = "o", ms = 2, **kwargs):
         """Function for plotting properties agains each other.
         plot x vs. y vs. z (optional) with z data values displayed in a colormap.
 
@@ -2045,10 +2052,11 @@ class Interface():
         hFig = plt.figure()
         hAx = plt.subplot(row, col, N)
 
+        ls = kwargs.pop("linestyle", "none")
+        ms = kwargs.pop("markersize", ms)
+        mew = kwargs.pop("markeredgewidth", 1)
+
         if z_data is None:
-            ls = kwargs.pop("linestyle", "none")
-            ms = kwargs.pop("markersize", 2)
-            mew = kwargs.pop("markeredgewidth", 1)
 
             for i in range(len(x_data)):
 
@@ -2091,7 +2099,7 @@ class Interface():
 
                     tP = hAx.scatter(x_data[i][j, :], y_data[i][k, :], c = z_data[i][l, :],\
                                      vmin = vmin, vmax = vmax, cmap = cmap, marker = m[i],\
-                                     label = "", **kwargs)
+                                     label = "", **kwargs, s = ms, linewidths = mew)
 
                     hP.append(tP)
 
@@ -2112,7 +2120,7 @@ class Interface():
         if handle: return
 
         """Annotating plot marker"""
-        hP[0].set_picker(2)
+        hP[0].set_pickradius(2)
         anP = hAx.plot([], [], marker = 'o', ms = 6, color = 'k', mew = 2, mfc = 'None',\
                        linestyle = 'None')
         plt.tight_layout()
@@ -2154,486 +2162,6 @@ class Interface():
                 else:
                     anP[0].set_data([], [])
                     hFig.canvas.draw_idle()
-
-        if save:
-            if save is True:
-                ut.save_fig(filename = "PropertyPlot.%s" % format, format = format,\
-                         dpi = dpi, verbose = verbose)
-            else:
-                ut.save_fig(filename = save, format = format, dpi = dpi,\
-                         verbose = verbose)
-            plt.close()
-        else:
-            hFig.canvas.mpl_connect("button_release_event", click)
-            plt.show()
-
-
-    def xplotProperty(self, x, y, z = None, idx = None, col = 1, row = 1, N = 1, 
-                     save = False, dpi = 100, format = "pdf", verbose = 1, handle = False,\
-                     translation = None, title = None, other = None, xb1 = None, xb2 = None,\
-                     yb1 = None, yb2 = None, zb1 = None, zb2 = None, ab = False, **kwargs):
-        """Function for plotting properties agains each other.
-        plot x vs. y vs. z (optional) with z data values displayed in a colormap.
-
-        x, y, z = str, Any property listed below
-
-        Available properties are
-        ------------------------
-        idx            = Index of current sorting
-        eps_11         = Eps_11
-        eps_22         = Eps_22
-        eps_12         = Eps_12
-        eps_mas        = Eps_mas
-        eps_max        = max(eps_11, eps_22, eps_12)
-        atoms          = Nr of atoms
-        angle          = Angle between interface cell vectors
-        rotation       = Initial rotation at creation
-        norm           = Sqrt(eps_11^2+eps_22^2+eps_12^2)
-        trace          = |eps_11|+|eps_22|
-        norm_trace     = Sqrt(eps_11^2+eps_22^2)
-        a_1            = Length of interface cell vector a_1
-        a_2            = Length of interface cell vector a_2
-        area           = Area of the interface
-        other          = Plot a custom array of values specified with keyword other. Length must match idx.
-        e_int_c        = Interfacial energy, for specified translation(s)
-        e_int_d        = Interfacial energy (vasp), for specified translation(s)
-        e_int_diff_c   = Difference in Interfacial energy between translations
-        e_int_diff_d   = Difference in Interfacial energy (vasp) between translations
-        w_sep_c        = Work of separation, for specified translation(s)
-        w_sep_d        = Work of separation (DFT), for specified translation(s)
-        w_seps_c       = Work of separation (strained ref), for specified translation(s)
-        w_seps_d       = Work of separation (strained ref) (DFT), for specified translation(s)
-        w_sep_diff_c   = Difference in w_sep_c between tranlsations
-        w_sep_diff_d   = Difference in w_sep_d (DFT) between tranlsations
-        w_seps_diff_c  = Difference in w_seps_c between translations
-        w_seps_diff_d  = Difference in w_seps_d (DFT) between translations
-        w_sep_trans_c  = Translation with the highest work of sepparation
-        w_sep_trans_c  = Translation with the highest work of sepparation (DFT)
-        w_seps_trans_c = Translation with the highest work of sepparation (strained)
-        w_seps_trans_c = Translation with the highest work of sepparation (strained) (DFT)
-        ------------------------
-
-        other = array(size_idx), If keyword "other" is specified in x, y or z then supply the
-        values as an array to this parameter
-
-        translation = int, [int,], Translations to include if property permits
-
-        title = str, Title of the plot
-
-        save = bool or str, Save the figure to this name or to a default
-        name (if True), False means display don't save
-
-        format = str, Any matplotlib supported format
-
-        dpi = int, Dpi used to save the file
-
-        row = int, Number of rows in the subplot
-
-        col = int, Number of columns in the subplot
-
-        N = int, If part of a subplot then this represents the number
-        where it will appear
-
-        handle = bool, If true simply create the axis object at the
-        specified (col, row, N) but do not display the figure
-
-        xb1, xb2, yb1, yb2, zb1, zb2 = int or array(3,3), Base to use for the
-        first or second surfaces for the x, y or z tag respectively
-
-        verbose = int, Print extra information
-        """
-
-        if idx is None: idx = np.arange(self.atoms.shape[0])
-        if translation is None: translation = [0]
-        if isinstance(translation, (int, np.integer)): translation = [translation]
-        
-        if save is True:
-            filename = "%s_%s.%s" % (x, y, format)
-
-        data = {"x": x, "y": y, "z": z}
-        lbl = {"x": "", "y": "", "z": ""}
-        if ab:
-            b1, b2 = self.getAB()
-        else:
-            b1, b2 = (None, None)
-        raw_x = x; raw_y = y
-
-        for key in data:
-            if data[key] is None: continue
-
-            if verbose > 0:
-                if b1 is not None:
-                    string = "Plotting values with using alternative base"
-                    ut.infoPrint(string)
-
-            if data[key].lower() == "idx":
-                data[key] = np.array(idx)
-                lbl[key] = "Index"
-
-            elif data[key].lower() == "eps_11":
-                data[key] = self.getStrain(idx = idx, strain = "eps_11", base_1 = b1, base_2 = b2)
-                lbl[key] = "$\epsilon_{11}$"
-
-            elif data[key].lower() == "eps_22":
-                data[key] = self.getStrain(idx = idx, strain = "eps_22", base_1 = b1, base_2 = b2)
-                lbl[key] = "$\epsilon_{22}$"
-
-            elif data[key].lower() == "eps_12":
-                data[key] = self.getStrain(idx = idx, strain = "eps_12", base_1 = b1, base_2 = b2)
-                lbl[key] = "$\epsilon_{12}$"
-
-            elif data[key].lower() == "eps_mas":
-                data[key] = self.getStrain(idx = idx, strain = "eps_mas", base_1 = b1, base_2 = b2)
-                lbl[key] = "$\epsilon_{mas}$"
-
-            elif data[key].lower() == "eps_max":
-                eps_stack = self.getStrain(idx = idx, strain = "array",\
-                                           base_1 = b1, base_2 = b2)
-                max = np.max(eps_stack, axis = 0)
-                min = np.min(eps_stack, axis = 0)
-                """Check if abs(min) is bigger than max, (to preserve sign)"""
-                max[np.abs(min) > np.abs(max)] = min[np.abs(min) > np.abs(max)]
-                data[key] = max
-                lbl[key] = "Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})$"
-
-            elif data[key].lower() == "atoms":
-                data[key] = self.atoms[idx]
-                lbl[key] = "Atoms"
-
-            elif data[key].lower() == "angle":
-                data[key] = self.getBaseAngles(idx = idx, cell = 1, rad = False, base_1 = b1, base_2 = b2)
-                lbl[key] = "Cell Angle, (Deg)"
-
-            elif data[key].lower() == "norm":
-                eps_stack = self.getStrain(idx = idx, strain = "array",\
-                                           base_1 = b1, base_2 = b2)
-                data[key] = np.linalg.norm(eps_stack, axis = 0)
-                lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$"
-
-            elif data[key].lower() == "norm_trace":
-                eps_stack = self.getStrain(idx = idx, strain = "array",\
-                                           base_1 = b1, base_2 = b2)
-                data[key] = np.sqrt(eps_stack[1, :]**2 + eps_stack[0, :]**2)
-                lbl[key] = "$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2}$"
-
-            elif data[key].lower() == "trace":
-                eps_stack = self.getStrain(idx = idx, strain = "array",\
-                                           base_1 = b1, base_2 = b2)
-                data[key] = np.abs(eps_stack[0, :]) + np.abs(eps_stack[1, :])
-                lbl[key] = "$|\epsilon_{11}|+|\epsilon_{22}|$"
-
-            elif data[key].lower() == "rotation":
-                data[key] = self.ang[idx]
-                lbl[key] = "Initial rotaion of top cell, (Deg)"
-
-            elif data[key].lower() == "a_1":
-                data[key] = self.getCellLengths(idx = idx, cell = 1, base_1 = b1)[:, 0]
-                lbl[key] = "Length $a_1$, ($\AA$)"
-
-            elif data[key].lower() == "a_2":
-                data[key] = self.getCellLengths(idx = idx, cell = 1, base_1 = b1)[:, 1]
-                lbl[key] = "Length $a_2$, ($\AA$)"
-
-            elif data[key].lower() == "area":
-                data[key] = self.getAreas(idx = idx, cell = 1, base_1 = b1)
-                lbl[key] = "Area, ($\AA^2$)"
-
-            elif data[key].lower() == "density":
-                area = self.getAreas(idx = idx, cell = 1, base_1 = b1)
-                if b1 is None:
-                    base_1 = self.base_1
-                else:
-                    base_1 = b1
-                if b2 is None:
-                    base_2 = self.base_2
-                else:
-                    base_2 = b2
-
-                base_area_1 = np.abs(np.cross(base_1[0, :2], base_1[1, :2]))
-                base_area_2 = np.abs(np.cross(base_2[0, :2], base_2[1, :2]))
-
-                vol = base_2[2, 2] * area
-                atoms = self.atoms[idx] - area * (self.pos_1.shape[0] / base_area_1)
-                norm_density = self.pos_2.shape[0] / (base_area_2 * base_2[2, 2])
-
-                data[key] = atoms / (vol * norm_density)
-                lbl[key] = "Atom density, ($Atoms/(\AA^2*standard)$)"
-
-            elif data[key].lower() == "e_int_c":
-                if len(translation) > self.e_int_c.shape[1]:
-                    string = "Translation (%i) outside e_int_c range (0,%i)"\
-                             % (np.max(translation), self.e_int_c.shape[1])
-                    ut.infoPrint(string)
-                    return
-
-                data[key] = self.e_int_c[idx, :][:, translation]
-                lbl[key] = "Interfacial Energy, ($eV/\AA2$)"
-
-            elif data[key].lower() == "e_int_d":
-                if len(translation) > self.e_int_d.shape[1]:
-                    string = "Translation (%i) outside e_int_d range (0,%i)"\
-                             % (np.max(translation), self.e_int_d.shape[1])
-                    ut.infoPrint(string)
-                    return
-
-                data[key] = self.e_int_d[idx, :][:, translation]
-                lbl[key] = "Interfacial Energy (DFT), ($eV/\AA2$)"
-
-            elif data[key].lower() == "e_int_diff_c":
-                if len(translation) > self.e_int_c.shape[1]:
-                    string = "Translation (%i) outside e_int_c range (0,%i)"\
-                             % (np.max(translation), self.e_int_c.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.max(self.e_int_c[idx, :][:, translation], axis = 1) -\
-                            np.min(self.e_int_c[idx, :][:, translation], axis = 1)
-                lbl[key] = "$\Delta$ in Interfacial Energy, ($eV/\AA^2$)"
-
-            elif data[key].lower() == "e_int_diff_d":
-                if len(translation) > self.e_int_d.shape[1]:
-                    string = "Translation (%i) outside e_int_d range (0,%i)"\
-                             % (np.max(translation), self.e_int_d.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.max(self.e_int_d[idx, :][:, translation], axis = 1) -\
-                            np.min(self.e_int_d[idx, :][:, translation], axis = 1)
-                lbl[key] = "$\Delta$ in Interfacial Energy (DFT), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_sep_c":
-                if len(translation) > self.w_sep_c.shape[1]:
-                    string = "Translation (%i) outside w_sep_c range (0,%i)"\
-                             % (np.max(translation), self.w_sep_c.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = self.w_sep_c[idx, :][:, translation]
-                lbl[key] = "Work of Separation, ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_sep_d":
-                if len(translation) > self.w_sep_d.shape[1]:
-                    string = "Translation (%i) outside w_sep_d range (0,%i)"\
-                             % (np.max(translation), self.w_sep_d.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = self.w_sep_d[idx, :][:, translation]
-                lbl[key] = "Work of Separation (DFT), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_sep_trans_c":
-                if len(translation) > self.w_sep_c.shape[1]:
-                    string = "Translation (%i) outside w_sep_c range (0,%i)"\
-                             % (np.max(translation), self.w_sep_c.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.argmax(self.w_sep_c[idx, :][:, translation], axis = 1)
-                lbl[key] = "T with max Work of Separation, ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_sep_trans_d":
-                if len(translation) > self.w_sep_d.shape[1]:
-                    string = "Translation (%i) outside w_sep_d range (0,%i)"\
-                             % (np.max(translation), self.w_sep_d.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.argmax(self.w_sep_d[idx, :][:, translation], axis = 1)
-                lbl[key] = "T with max Work of Separation (DFT), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_sep_diff_c":
-                if len(translation) > self.w_sep_c.shape[1]:
-                    string = "Translation (%i) outside w_sep_c range (0,%i)"\
-                             % (np.max(translation), self.w_sep_c.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.max(self.w_sep_c[idx, :][:, translation], axis = 1) -\
-                            np.min(self.w_sep_c[idx, :][:, translation], axis = 1)
-                lbl[key] = "$\Delta$ in Work of Separation, ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_sep_diff_d":
-                if len(translation) > self.w_sep_d.shape[1]:
-                    string = "Translation (%i) outside w_sep_d range (0,%i)"\
-                             % (np.max(translation), self.w_sep_d.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.max(self.w_sep_d[idx, :][:, translation], axis = 1) -\
-                            np.min(self.w_sep_d[idx, :][:, translation], axis = 1)
-                lbl[key] = "$\Delta$ in Work of Separation (DFT), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_seps_diff_c":
-                if len(translation) > self.w_seps_c.shape[1]:
-                    string = "Translation (%i) outside w_seps_c range (0,%i)"\
-                             % (np.max(translation), self.w_seps_c.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.max(self.w_seps_c[idx, :][:, translation], axis = 1) -\
-                            np.min(self.w_seps_c[idx, :][:, translation], axis = 1)
-                lbl[key] = "$\Delta$ in Work of Separation (strained), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_seps_diff_d":
-                if len(translation) > self.w_seps_d.shape[1]:
-                    string = "Translation (%i) outside w_seps_d range (0,%i)"\
-                             % (np.max(translation), self.w_seps_d.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.max(self.w_seps_d[idx, :][:, translation], axis = 1) -\
-                            np.min(self.w_seps_d[idx, :][:, translation], axis = 1)
-                lbl[key] = "$\Delta$ in Work of Separation (strained) (DFT), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_seps_c":
-                if len(translation) > self.w_seps_c.shape[1]:
-                    string = "Translation (%i) outside w_seps_c range (0,%i)"\
-                             % (np.max(translation), self.w_seps_c.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = self.w_seps_c[idx, :][:, translation]
-                lbl[key] = "Work of Separation (strained), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_seps_d":
-                if len(translation) > self.w_seps_d.shape[1]:
-                    string = "Translation (%i) outside w_seps_d range (0,%i)"\
-                             % (np.max(translation), self.w_seps_d.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = self.w_seps_d[idx, :][:, translation]
-                lbl[key] = "Work of Separation (strained) (DFT), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_seps_trans_c":
-                if len(translation) > self.w_seps_c.shape[1]:
-                    string = "Translation (%i) outside w_seps_c range (0,%i)"\
-                             % (np.max(translation), self.w_seps_c.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.argmax(self.w_seps_c[idx, :][:, translation], axis = 1)
-                lbl[key] = "T with max Work of Separation (strained), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "w_seps_trans_d":
-                if len(translation) > self.w_seps_d.shape[1]:
-                    string = "Translation (%i) outside w_seps_d range (0,%i)"\
-                             % (np.max(translation), self.w_seps_d.shape[1])
-                    ut.infoPrint(string)
-                    return
-                
-                data[key] = np.argmax(self.w_seps_d[idx, :][:, translation], axis = 1)
-                lbl[key] = "T with max Work of Separation (strained) (DFT), ($eV/\AA^2$)"
-
-            elif data[key].lower() == "other":
-                data[key] = other
-                lbl[key] = "Custom"
-
-            else:
-                string = "Unrecognized key: %s" % key
-                ut.infoPrint(string)
-                return
-
-        hFig = plt.figure()
-
-        if data["z"] is None:
-            ls = kwargs.pop("linestyle", "none")
-            m = kwargs.pop("marker", "o")
-            ms = kwargs.pop("markersize", 1.5)
-            mew = kwargs.pop("markeredgewidth", 1)
-
-            hAx = plt.subplot(row, col, N)
-            hP = hAx.plot(data["x"], data["y"], linestyle = ls, mew = mew, marker = m,\
-                          markersize = ms, **kwargs)
-            hAx.set_xlabel(lbl["x"])
-            hAx.set_ylabel(lbl["y"])
-        else:
-            hAx = plt.subplot(row, col, N)
-
-            if np.ndim(data["x"]) == 1: data["x"] = data["x"][:, None]
-            if np.ndim(data["y"]) == 1: data["y"] = data["y"][:, None]
-            if np.ndim(data["z"]) == 1: data["z"] = data["z"][:, None]
-
-            cm = kwargs.pop("colormap", "viridis")
-            cmap = plt.cm.get_cmap(cm)
-            vmin = kwargs.pop("vmin", np.min(data["z"]))
-            vmax = kwargs.pop("vmax", np.max(data["z"]))
-            c = kwargs.pop("color", 'b')
-
-            hP = []
-            j,k,l = (0, 0, 0)
-            for i, t in enumerate(translation):
-            
-                tP = hAx.scatter(data["x"][:, j], data["y"][:, k], c = data["z"][:, l],\
-                                 vmin = vmin, vmax = vmax, cmap = cmap, **kwargs)
-
-                hP.append(tP)
-
-                if np.shape(data["x"])[1] > 1: j += 1
-                if np.shape(data["y"])[1] > 1: k += 1
-                if np.shape(data["z"])[1] > 1: l += 1
-                
-            plt.colorbar(hP[0], label = lbl["z"])
-            hAx.set_xlabel(lbl["x"])
-            hAx.set_ylabel(lbl["y"])
-
-        if handle: return
-
-        if title is None:
-            hAx.set_title(self.filename)
-        else:
-            hAx.set_title(title)
-
-        if len(translation) > 1:
-            lgd = []
-            for i in translation:
-                lgd.append("$T_{%i}$" % i)
-                plt.legend(lgd, framealpha = 1)
-
-        """Annotating plot marker"""
-        hP[0].set_picker(2)
-        anP = hAx.plot([], [], marker = 'o', ms = 6, color = 'k', mew = 2, mfc = 'None',\
-                       linestyle = 'None')
-        plt.tight_layout()
-
-        """Function to allow clickable points to display information"""
-        def click(event):
-            if event.inaxes == hAx:
-
-                for line in hP:
-                    cont, ind = line.contains(event)
-                    if cont:
-                        break
-
-                if cont:
-                    if data["z"] is not None:
-                        x = line.get_offsets()[:, 0]
-                        y = line.get_offsets()[:, 1]
-                    else:
-                        x, y = line.get_data()
-
-                    xSel = x[ind["ind"]]
-                    ySel = y[ind["ind"]]
-
-                    pPos = hAx.transData.transform((xSel, ySel))
-                    pDist = np.linalg.norm(pPos - [[event.x, event.y]], axis = 1)
-                    index = ind["ind"][np.argmin(pDist)]
-                    anP[0].set_data(x[ind["ind"]], y[ind["ind"]])
-                    for n, i in enumerate(ind["ind"]):
-                        string = "Idx: %i  %s: %.4f  %s: %.4f  Nr Points: %i"\
-                            % (idx[i], raw_x, x[i], raw_y, y[i], len(ind["ind"]))
-
-                        if n == 0: 
-                            print("=" * len(string))
-                        print(string)
-                        if n == len(ind["ind"]) - 1: 
-                            print("=" * len(string))
-
-                    hFig.canvas.draw_idle()
-                else:
-                    anP[0].set_data([], [])
-                    hFig.canvas.draw_idle()
-
 
         if save:
             if save is True:
@@ -2695,16 +2223,12 @@ class Interface():
 
         cmap = valid matplotlib colormap, Colormap used in the plot
 
-        ls = valid matplotlib linestyle, linestyle in the plot
-
-        m = valid matplotlib marker, Marker in the plot
-
-        ms = float, Markersize in the plot
-
         handle = bool, If true simply create the axis object at the
         specified (col, row, N) but do not display the figure
 
         shrink_idx = bool, Plot with index 0:range(len(idx)) not actual idx
+
+        **kwargs = any matplotlib plot kwargs
         """
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
@@ -3030,8 +2554,8 @@ class Interface():
                 norm_density = self.pos_2.shape[0] / (base_area_2 * baseD_2[2, 2])
 
                 data.append(atoms / (vol * norm_density))
-                lbl_short.append("$\\rho$, (Atoms/$\AA^2$)")
-                lbl_long.append("Atom Density, (Atoms/$\AA^2$)")
+                lbl_short.append("$\\rho$, (Atoms/$N\AA^2$)")
+                lbl_long.append("Normalized Atom Density, (Atoms/$N\AA^2$)")
                 if b1 is None:
                     leg.append("$\\rho$")
                 else:

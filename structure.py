@@ -8,16 +8,6 @@ from interfaceBuilder import file_io
 from interfaceBuilder import inputs
 from interfaceBuilder import utils as ut
 
-#"""Set some plotting defaults"""
-#plotParams = {"font.size": 10, "font.family": "serif", "axes.titlesize": "medium",\
-#              "axes.labelsize": "small", "axes.labelweight": "normal",\
-#              "axes.titleweight": "semibold", "legend.fontsize": "small",\
-#              "xtick.labelsize": "small", "ytick.labelsize": "small",\
-#              "figure.titlesize": "medium", "figure.titleweight": "semibold",\
-#              "lines.linewidth": 1, "lines.marker": "None", "lines.markersize": 2,\
-#              "lines.markerfacecolor": "None", "legend.framealpha": 1}
-#plt.rcParams.update(**plotParams)
-
 
 class Structure():
     """
