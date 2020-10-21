@@ -1,0 +1,18 @@
+LAMMPS-data file (bcc_w_110.data) written from file_io.py
+
+2 atoms
+1 atom types
+
+    0.000000     3.164917   xlo xhi
+    0.000000     2.237935   ylo yhi
+    0.000000     4.475869   zlo zhi
+    1.582459     0.000000     0.000000   xy xz yz
+
+Masses
+
+1  183.840000
+
+Atoms
+
+    1   1     0.000000     0.000000     0.000000
+    2   1     1.582459     0.000000     2.237935

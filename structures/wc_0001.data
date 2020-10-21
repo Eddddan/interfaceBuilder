@@ -1,0 +1,19 @@
+LAMMPS-data file (wc_0001.data) written from file_io.py
+
+2 atoms
+2 atom types
+
+    0.000000     2.916589   xlo xhi
+    0.000000     2.525840   ylo yhi
+    0.000000     2.812102   zlo zhi
+   -1.458295     0.000000     0.000000   xy xz yz
+
+Masses
+
+1   12.010700
+2  183.840000
+
+Atoms
+
+    2   1     1.458222     0.841905     1.406051
+    1   2     0.000000     0.000000     0.000000
