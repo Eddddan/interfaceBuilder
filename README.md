@@ -1,27 +1,27 @@
 # interfaceBuilder
 
-Scripts used to build interfaces from initial atomistic structures.
+Package used to build interfaces from initial atomistic structures.
 The approach for finding interfaces is the one developed by the authors in 
 [1] J. Phys.: Condens. Matter 29 (2017) 185901 (7pp)
 
 Beyond interface discovery and generation a lot of functionality
 for analyzing the discovered interfaces are included.
 
-Contains the following files
+##Contains the following files
+
 ----------------------------
-file_io   - Reading and writing of files
-structure - Object for holding cell geometries and information
-interface - Object for holding interface collections
-utils     - Utility functions used by the other classes
-inputs    - User defined manual database for holding structure information
-style     - Some plot defaults
+file_io   - Reading and writing of files  
+structure - Object for holding cell geometries and information  
+interface - Object for holding interface collections  
+utils     - Utility functions used by the other classes  
+inputs    - User defined manual database for holding structure information  
+style     - Some plot defaults  
 
-Structures - Folder with some example structures that can be loaded
+Structures - Folder with some example structures that can be loaded  
+Scripts    - Folder with a few scripts for some of the basic operations  
 
-Scripts    - Folder with a few scripts for some of the basic operations
-
-Example operations
-------------------
+----------------------------
+##Example operations
 
 They easiest way of working with the package and setting up interface combinations
 and analyzing data is from an ipython terminal. To get all base packages needed 
