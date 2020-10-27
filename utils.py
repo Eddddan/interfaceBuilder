@@ -120,7 +120,7 @@ def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
     return C, E, current, done, current_iter
 
 
-def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.4],\
+def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.5],\
                    lw = 0.5):
     """Function for adding a lattice grid when plotting interfaces
     
@@ -166,7 +166,7 @@ def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.4],\
     ny_lo = np.min(scale[1, :])
     ny_hi = np.max(scale[1, :])
 
-    extend = 10
+    extend = 25
     nX = np.arange(nx_lo - extend, nx_hi + 1 + extend)
     nY = np.arange(ny_lo - extend, ny_hi + 1 + extend)
     x = a1 * nX

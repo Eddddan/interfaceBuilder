@@ -233,19 +233,28 @@ class Interface():
         self.w_seps_d = self.w_seps_d[index]
 
 
-    def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1):
+    def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1, sort = "default"):
         """Get the index of interfaces with strains within specified tolerences
 
         tol_mag = int, Magnitude at which to consider stains identical
         7 mean rounded to 7 decimals
 
         verbose = int, Print extra information
+
+        sort = str("length"/"angle"), which interfaces to give preference to when
+        removing atom/strain duplicates. Length minimizes the cell lengths, angle
+        favors right angles. Default builds the interfaces as initially constructed.
         """
 
-        """Favor cells with the smallest surface lengths, i.e. least distorted"""
-        cl = self.getCellLengths(cell = 1)
-        si = np.argsort(np.sum(cl, axis = 1))
-        self.indexSortInterfaces(index = si)
+        """Favor cells by first making the desired sorting and then removing duplicates"""
+        if sort.lower() == "length":
+            p = np.sum(self.getCellLengths(cell = 1), axis = 1)
+            si = np.argsort(p)
+            self.indexSortInterfaces(index = si)
+        elif sort.lower() == "angle":
+            p = np.abs(np.pi / 2 - self.getBaseAngles(cell = 1))
+            si = np.argsort(p)
+            self.indexSortInterfaces(index = si)
 
         """Find unique strains within specified tolerances"""
         values = np.zeros((self.atoms.shape[0], 2))
@@ -850,11 +859,10 @@ class Interface():
     def getBounds(self, idx = None, cell = 1, base_1 = None, base_2 = None):
         """Function for getting the ortogonal x-y bounds of the specified interfaces
 
-        idx = array(int,) or [int,], Index of interfaces to get the area of
-        Default = all interfaces
+        idx = array(int,) or [int,], Index of interfaces to get parameter for
 
-        cell = 1 or 2, Area of Surface 1 (bottom) (also area of the interface)
-        or 2 (top) unstrained
+        cell = 1 or 2, Surface 1 (bottom) or surface 2 (top) to use
+        in the calculation
 
         base_1 = array([2,2]), Use this as base for cell_1
 
@@ -872,6 +880,25 @@ class Interface():
 
         return np.array([x, y])
 
+
+    def getMinWidth(self, idx = None, cell = 1, base_1 = None, base_2 = None):
+        """Function for getting the minimum width of the cell
+
+        idx = array(int,) or [int,], Index of interfaces to get parameter for
+
+        cell = 1 or 2, Surface 1 (bottom) or surface 2 (top) to use
+        in the calculation
+
+        base_1 = array([2,2]), Use this as base for cell_1
+
+        base_2 = array([2,2]), Use this as base for cell_2
+        """
+
+        l = self.getCellLengths(idx = idx, cell = cell, base_1 = base_1, base_2 = base_2)
+        a = self.getBaseAngles(idx = idx, cell = cell, base_1 = base_1, base_2 = base_2)
+
+        return np.sin(a) * np.min(l, axis = 1)
+        
 
     def getCellLengths(self, idx = None, cell = 1, base_1 = None, base_2 = None):
         """Function for getting the cell lengths of specified interfaces
@@ -954,7 +981,7 @@ class Interface():
                    limit = None, exp = 1, verbose = 1, min_angle = 10,\
                    remove_asd = True, asd_tol = 7, limit_asr = False,\
                    asr_tol = 1e-7, asr_iter = 350, asr_strain = "eps_mas",\
-                   asr_endpoint = "over", target = None):
+                   asr_endpoint = "over", target = None, favor = "default"):
         """Main function for finding cell matches. Searches all permutations of 
         n_max, m_max of the top cell at each rotation theta/dTheta and finds the 
         best matches based on strain.
@@ -1002,6 +1029,10 @@ class Interface():
 
         asr_endpoint = str("over" / "under") stop the iteration search to reach
         asr_limit over or under the specified limit if a match cant be found.
+
+        favor = str("length"/"angle"), which interfaces to give preference to when
+        removing atom/strain duplicates. Length minimizes the cell lengths, angle
+        favors right angles. Default builds the interfaces as initially constructed.
         """
 
         if self.base_1 is None:
@@ -1246,14 +1277,13 @@ class Interface():
 
         """Find duplicates in the combo (nr_atoms, eps_mas) if specified"""
         if remove_asd:
-            keep = self.getAtomStrainDuplicates(tol_mag = asd_tol, verbose = 0)
+            keep = self.getAtomStrainDuplicates(tol_mag = asd_tol, verbose = 0, sort = favor)
+            self.deleteInterfaces(keep, verbose = verbose - 1)
+
             if verbose > 0:
                 string = "Duplicate atoms/strain combinations: %i | Total matches kept: %i"\
                          % (np.sum(np.logical_not(keep)), np.sum(keep))
                 ut.infoPrint(string)
-
-            """Remove duplicates"""
-            self.removeAtomStrainDuplicates(tol_mag = asd_tol, verbose = verbose - 1)
 
         """Interfaces with |strains| < tol are slightly perturbed to avoid issues with log expressions"""
         tol = 1e-7
@@ -2039,12 +2069,15 @@ class Interface():
         if isinstance(ab, (int, np.integer)): ab = [ab]
 
         x_data, temp, x_lbl, x_leg = self.getData(idx = idx, var = x, ab = ab, translation = translation,\
-                                                 compact = True, verbose = verbose)
+                                                 compact = True, verbose = verbose, other = other)
         y_data, temp, y_lbl, y_leg = self.getData(idx = idx, var = y, ab = ab, translation = translation,\
-                                                  compact = True, verbose = verbose)
+                                                  compact = True, verbose = verbose, other = other)
+        if len(x_data) != len(y_data): return
+
         if len(z) > 0:
             z_data, temp, z_lbl, z_leg = self.getData(idx = idx, var = z, ab = ab, translation = translation,\
-                                                      compact = True, verbose = verbose)
+                                                      compact = True, verbose = verbose, other = other)
+            if len(x_data) != len(y_data) != len(z_data): return
         else:
             z_data = None
 
@@ -2057,6 +2090,10 @@ class Interface():
         mew = kwargs.pop("markeredgewidth", 1)
 
         if z_data is None:
+
+            kwargs.pop("vmin", None)
+            kwargs.pop("vmax", None)
+            kwargs.pop("colormap", None)
 
             for i in range(len(x_data)):
 
@@ -2074,7 +2111,7 @@ class Interface():
             zmin = np.min([np.min(i) for i in z_data])
             zmax = np.max([np.max(i) for i in z_data])
 
-            cm = kwargs.pop("colormap", "viridis")
+            cm = kwargs.pop("colormap", "plasma")
             cmap = plt.cm.get_cmap(cm)
             vmin = kwargs.pop("vmin", zmin)
             vmax = kwargs.pop("vmax", zmax)
@@ -2088,12 +2125,12 @@ class Interface():
 
                 if (np.shape(z_data[i]) != np.shape(x_data[i])) and\
                    (np.shape(z_data[i]) != np.shape(y_data[i])) and\
-                   (np.ndim(z_data[i]) != 1):
-                    string = "Ambiguous z data %s with x %s and y %s, skipping idx: %i"\
-                             % (np.shape(z_data[i]), np.shape(x_data[i]), np.shape(y_data[i]), i)
+                   (z_data[i].shape[0] != 1):
+                    string = "Ambiguous z data %s with x %s and y %s"\
+                             % (np.shape(z_data[i]), np.shape(x_data[i]), np.shape(y_data[i]))
                     ut.infoPrint(string)
-                    continue
-
+                    return
+                
                 j,k,l = (0, 0, 0)
                 for ii, t in enumerate(translation):
 
@@ -2180,7 +2217,7 @@ class Interface():
                           save = False, dpi = 100, format = "pdf", row = 1,\
                           col = 1, N = 1, handle = False, cmap = "tab10",\
                           m = 'o', ls = 'None', delta = False, verbose = 1,\
-                          ms = 3, ab = [], shrink_idx = True,\
+                          ms = 3, ab = [], shrink_idx = False,\
                           **kwargs):
         """Function for plotting comparisons of interface properties
         
@@ -2236,8 +2273,15 @@ class Interface():
         if isinstance(translation, (int, np.integer)): translation = [translation]
         if isinstance(ab, (int, np.integer)): ab = [ab]
 
+        if other is not None:
+            if np.shape(other)[0] != np.shape(idx)[0]:
+                string = "Length of other %s inconsistent with the rest of the data %s"\
+                         % (np.shape(other), np.shape(idx))
+                ut.infoPrint(string)
+                return
+
         data, lbl, ax, leg = self.getData(var = var, idx = idx, translation = translation,\
-                                          ab = ab, verbose = verbose - 1)
+                                          ab = ab, other = other, verbose = verbose - 1)
 
         if shrink_idx:
             x = range(np.shape(idx)[0])
@@ -2246,6 +2290,7 @@ class Interface():
 
         ls = kwargs.pop("linestyle", ls)
         m = kwargs.pop("marker", m)
+        if type(m) == str: m = [m] * len(data)
         ms = kwargs.pop("markersize", ms)
         lw = kwargs.pop("linewidth", 0.6)
 
@@ -2260,7 +2305,7 @@ class Interface():
                     d = np.vstack((d, data[i]))
                 
             hAx.plot(x, data[i], label = leg[i], color = c[i, :], linestyle = ls, zorder = i + 1,\
-                     linewidth = lw, marker = m, markersize = ms, **kwargs)
+                     linewidth = lw, marker = m[i], markersize = ms, **kwargs)
 
         if delta:
             hAxr = hAx.twinx()
@@ -2269,14 +2314,17 @@ class Interface():
             hAxr.set_ylabel("$\Delta$")
 
         
-        if shrink_idx: 
+        if shrink_idx:
+            if len(idx) > 20: plt.xticks(rotation = 90)
             hAx.set_xticks(range(np.shape(x)[0]))
             hAx.set_xticklabels([str(i) for i in idx])
 
         hAx.set_ylabel(ax[0])
         hAx.set_xlabel("Index")
         hAx.set_title("Comparison")
-        hAx.legend()
+        ncol = 1
+        if len(leg) > 3: ncol = 2
+        hAx.legend(ncol = ncol)
         hFig.tight_layout()
 
         if save:
@@ -2291,7 +2339,8 @@ class Interface():
             plt.show()
 
 
-    def getData(self, var, idx = None, translation = None, verbose = 1, ab = [], compact = False):
+    def getData(self, var, idx = None, translation = None, other = None,\
+                verbose = 1, ab = [], compact = False):
         """Function for returning values for selected properties in an 
         array size [var, idx]
         
@@ -2312,6 +2361,7 @@ class Interface():
         x          = Cell bounding box, x direction (a_1 aligned to x)
         y          = Cell bounding box, y direction (a_1 aligned to x)
         min_bound  = Min(x,y)
+        minwidth   = Minimum width of the cell, min(l)*sin(cell_angle) 
         a_1        = Length of interface cell vector a_1
         a_2        = Length of interface cell vector a_2
         area       = Area of the interface
@@ -2348,6 +2398,7 @@ class Interface():
         if translation is None: translation = [0]
         if isinstance(translation, (int, np.integer)): translation = [translation]
         if isinstance(ab, (int, np.integer)): ab = [ab]
+        if isinstance(var, str): var = [var]
 
         data = []
         lbl_short = []
@@ -2509,7 +2560,16 @@ class Interface():
                     leg.append("$Min(x^{C},y^{C})$")
                 else:
                     leg.append("$Min(x^{C},y^{C})^{\dagger}$")
-                
+        
+            elif item.lower() == "min_width":
+                data.append(self.getMinWidth(idx = idx, cell = 1, base_1 = b1))
+                lbl_short.append("Min Width, ($\AA$)")
+                lbl_long.append("Min Width, ($\AA$)")
+                if b1 is None:
+                    leg.append("Min Width")
+                else:
+                    leg.append("Min Width$^{\dagger}$")
+        
             elif item.lower() == "a_1":
                 data.append(self.getCellLengths(idx = idx, cell = 1, base_1 = b1)[:, 0])
                 lbl_short.append("L $a_1$, ($\AA$)")
@@ -2571,13 +2631,13 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.e_int_c[idx, :][:, t])
-                        lbl_short.append("E$_{I,%i}^{C}$, ($eV/\AA2$)" % t)
-                        lbl_long.append("Interfacial Energy, ($eV/\AA2$)")
-                        leg.append("E$_{I,%i}^{C}$, ($eV/\AA2$)" % t)
+                        lbl_short.append("E$_{I,%i}^{C}$, ($eV/\AA^2$)" % t)
+                        lbl_long.append("Interfacial Energy, ($eV/\AA^2$)")
+                        leg.append("E$_{I,%i}^{C}$" % t)
                 else:
                     data.append(self.e_int_c[idx, :][:, translation].T)
-                    lbl_short.append("E$_{I}^{C}$, ($eV/\AA2$)")
-                    lbl_long.append("Interfacial Energy, ($eV/\AA2$)")
+                    lbl_short.append("E$_{I}^{C}$, ($eV/\AA^2$)")
+                    lbl_long.append("Interfacial Energy, ($eV/\AA^2$)")
                     [leg.append("E$_{I,%i}^{C}$" % t) for t in translation]
                         
             elif item.lower() == "e_int_d":
@@ -2590,13 +2650,13 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.e_int_d[idx, :][:, t])
-                        lbl_short.append("E$_{I,%i}^{D}$, ($eV/\AA2$)" % t)
-                        lbl_long.append("Interfacial Energy (DFT)$, ($eV/\AA2$)")
+                        lbl_short.append("E$_{I,%i}^{D}$, ($eV/\AA^2$)" % t)
+                        lbl_long.append("Interfacial Energy (DFT), ($eV/\AA^2$)")
                         leg.append("E$_{I,%i}^{D}$" % t)
                 else:
                     data.append(self.e_int_d[idx, :][:, translation].T)
-                    lbl_short.append("E$_{I}^{D}$, ($eV/\AA2$)")
-                    lbl_long.append("Interfacial Energy (DFT)$, ($eV/\AA2$)")
+                    lbl_short.append("E$_{I}^{D}$, ($eV/\AA^2$)")
+                    lbl_long.append("Interfacial Energy (DFT), ($eV/\AA^2$)")
                     [leg.append("E$_{I,%i}^{D}$"  % t) for t in translation]
 
             elif item.lower() == "e_int_diff_c":
@@ -2721,7 +2781,7 @@ class Interface():
                 data.append(other)
                 lbl_short.append("Custom")
                 lbl_long.append("Custom")
-                leg.append("Custom")
+                leg.append("C")
 
             else:
                 string = "Unrecognized variable: %s (discarded)" % item
@@ -2729,6 +2789,139 @@ class Interface():
 
         return data, lbl_short, lbl_long, leg
 
+
+
+    def plotHistogram(self, var, idx = None, translation = None, other = None,\
+                      verbose = 1, ab = [], bins = 100, minmax = None,\
+                      cmap = "tab10", row = 1, col = 1, N = 1, save = False,\
+                      dpi = 100, format = "pdf", shift = None, **kwargs):
+        """Function for plotting histograms of specified data
+
+        For available values for "var" see getData method
+
+        idx = int or [int,], Index of interfaces to compare
+
+        ab = [int,] List with integers representing the var index
+        for which to use the alternative base 
+
+        other = array(size_idx), If keyword "other" is specified in x, y or z then supply the
+        values as an array to this parameter
+
+        verbose = int, Print extra information
+
+        translation = int, [int,], Translations to include if property permits
+
+        bins = int or array(len(data + 1)), Bins in the histogram
+
+        minmax = [float, float], [Min,Max] of the histogram
+
+        shift = float, Shift the curves on the y axis by this amount
+        for differentiating between the lines
+
+        cmap = matplotlib colormap
+
+        row = int, Number of rows in the subplot
+
+        col = int, Number of columns in the subplot
+
+        N = int, If part of a subplot then this represents the number
+        where it will appear
+
+        save = bool or str, Save the figure to this name or to a default
+        name (if True), False means display don't save
+
+        format = str, Any matplotlib supported format
+
+        dpi = int, Dpi used to save the file
+
+        kwargs = <matplotlib kwargs>
+        """
+        
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if translation is None: translation = [0]
+        if isinstance(translation, (int, np.integer)): translation = [translation]
+        if isinstance(var, str): var = [var]
+
+        if other is not None:
+            if np.shape(other)[0] != np.shape(idx)[0]:
+                string = "Length of other %s inconsistent with the rest of the data %s"\
+                         % (np.shape(other), np.shape(idx))
+                ut.infoPrint(string)
+                return
+
+        x, y, lbl, leg = self.getHistogram(var = var, idx = idx, translation = translation,\
+                                           verbose = verbose, ab = ab, other = other,\
+                                           bins = bins, minmax = minmax)
+
+        cmap = kwargs.pop("colormap", cmap)
+        c = plt.cm.get_cmap(cmap)(range(len(x)))
+        c = kwargs.pop("color", c)
+
+        s = 0
+        hFig = plt.figure()
+        hAx = plt.subplot(row, col, N)
+        for i in range(len(x)):
+            hAx.plot(x[i], y[i] + s, label = leg[i], color = c[i], **kwargs)
+            if shift is not None: s += shift
+
+        hAx.set_xlabel(lbl[0])
+        hAx.set_ylabel("Count")
+        hAx.legend()
+        if self.filename is None:
+            hAx.set_title("Histogram")
+        else:
+            hAx.set_title(self.filename)
+        
+        if save:
+            if save is True:
+                ut.save_fig(filename = "Histogram.%s" % format, format = format,\
+                         dpi = dpi, verbose = verbose)
+            else:
+                ut.save_fig(filename = save, format = format, dpi = dpi,\
+                         verbose = verbose)
+            plt.close()
+        else:
+            plt.show()
+
+
+    def getHistogram(self, var, idx = None, translation = None, other = None,\
+                     verbose = 1, ab = [], bins = 100, minmax = None):
+        """Function for getting histogram data for specified data
+
+        For available values for "var" see getData method
+
+        idx = int or [int,], Index of interfaces to compare
+
+        ab = [int,] List with integers representing the var index
+        for which to use the alternative base 
+
+        other = array(size_idx), If keyword "other" is specified in x, y or z then supply the
+        values as an array to this parameter
+
+        verbose = int, Print extra information
+
+        translation = int, [int,], Translations to include if property permits
+
+        bins = int or array(len(data + 1)), Bins in the histogram
+
+        minmax = [float, float], [Min,Max] of the histogram
+        """
+        
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if translation is None: translation = [0]
+        if isinstance(translation, (int, np.integer)): translation = [translation]
+                
+        data, temp, lbl, leg = self.getData(var = var, idx = idx, translation = translation,\
+                                            verbose = verbose, ab = ab, other = other)
+
+        x = []
+        y = []
+        for i, item in enumerate(data):
+            cnt, bin = np.histogram(item, bins = bins, range = minmax)
+            x.append((bin[:-1] + bin[1:]) / 2)
+            y.append(cnt)
+
+        return x, y, lbl, leg
 
 
     def getCC(self, var, idx = None, translation = None, other = None,\
@@ -2745,6 +2938,8 @@ class Interface():
         other = array(size_idx), If keyword "other" is specified in x, y or z then supply the
         values as an array to this parameter
 
+        verbose = int, Prints extra information
+
         translation = int, [int,], Translations to include if property permits
         """
 
@@ -2753,7 +2948,7 @@ class Interface():
         if isinstance(translation, (int, np.integer)): translation = [translation]
                 
         data, lbl = self.getData(var = var, idx = idx, translation = translation,\
-                                 verbose = verbose, ab = ab)[:2]
+                                 verbose = verbose, ab = ab, other = other)[:2]
 
         string = ""
         for i, item in enumerate(data):
