@@ -19,7 +19,9 @@ style     - Some plot defaults
 Structures - Folder with some example structures that can be loaded
 
 Scripts    - Folder with a few scripts for some of the basic operations
-----------------------------
+
+Example operations
+------------------
 
 They easiest way of working with the package and setting up interface combinations
 and analyzing data is from an ipython terminal. To get all base packages needed 
