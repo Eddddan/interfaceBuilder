@@ -9,6 +9,8 @@ and the corresponding surfaces to common simulation file formats (VASP,LAMMPS,EO
 analysis calculated paramteres such as work of sepparation and interfacial energy can be 
 loaded back into the data set and combined with the original interface data. 
 
+This project is licensed under the terms of the MIT license.
+
 ## Contains the following files
 
 ----------------------------
