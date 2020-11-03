@@ -32,6 +32,29 @@ def loadInterfaces(filename, verbose = 1):
         return None
 
 
+def readPropFile(filename):
+    """Function for reading files containing properties to set e.g. work of sepparation
+
+    filename = str, Filename of file to read
+    """
+    
+    try:
+        """Read file"""
+        with open(filename, 'r') as f:
+            t = [np.int(j) for j in f.readline().split()]
+            data = np.loadtxt(f)
+
+            idx = data[:, 0].astype(np.int)
+            val = data[:, 1:]
+
+            return idx, t, val
+
+    except FileNotFoundError:
+        msg = "File: %s not found" % filename
+        infoPrint(msg)
+        return None, None, None
+        
+
 def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
                      trace = 0, verbose = 1, current_iter = 0,\
                      max_iter = 500, tol = 1e-8, endpoint = "under"):
@@ -121,7 +144,7 @@ def iterateNrMatches(x, y, current, target, C, E, dC = 1,\
 
 
 def overlayLattice(lat, latRep, hAx, rot = 0, ls = '-', c = [0, 0, 0, 0.5],\
-                   lw = 0.5):
+                   lw = 0.6):
     """Function for adding a lattice grid when plotting interfaces
     
     lat = array([2,2] or [3,3]), Lattice to overlay
@@ -259,6 +282,45 @@ def getRotMatrix(ang, dim = 2, verbose = 1):
                   [          0,            0, 1]])
 
     return R[0:dim, 0:dim]
+
+
+def getPlotProperties():
+    """Return available keyword properties"""
+
+    string = "idx           = Index of current sorting\n"\
+        "eps_11        = Eps_11\n"\
+        "eps_22        = Eps_22\n"\
+        "eps_12        = Eps_12\n"\
+        "eps_mas       = Eps_mas\n"\
+        "eps_max       = max(eps_11, eps_22, eps_12)\n"\
+        "atoms         = Nr of atoms\n"\
+        "angle         = Angle between interface cell vectors\n"\
+        "rotation      = Initial rotation at creation\n"\
+        "norm          = Sqrt(eps_11^2+eps_22^2+eps_12^2)\n"\
+        "trace         = |eps_11|+|eps_22|\n"\
+        "norm_trace    = Sqrt(eps_11^2+eps_22^2)\n"\
+        "x             = Cell bounding box, x direction (a_1 aligned to x)\n"\
+        "y             = Cell bounding box, y direction (a_1 aligned to x)\n"\
+        "min_bound     = Min(x,y)\n"\
+        "min_width     = Minimum width of the cell, min(l)*sin(cell_angle)\n"\
+        "a_1           = Length of interface cell vector a_1\n"\
+        "a_2           = Length of interface cell vector a_2\n"\
+        "area          = Area of the interface\n"\
+        "other         = Plot a custom array of values specified with keyword other. Length must match idx\n"\
+        "e_int_c       = Interfacial energy, for specified translation(s)\n"\
+        "e_int_d       = Interfacial energy (DFT), for specified translation(s)\n"\
+        "e_int_diff_c  = Difference in Interfacial energy between translations\n"\
+        "e_int_diff_d  = Difference in Interfacial energy (DFT) between translations\n"\
+        "w_sep_c       = Work of separation, for specified translation(s)\n"\
+        "w_sep_d       = Work of separation (DFT), for specified translation(s)\n"\
+        "w_seps_c      = Work of separation (strained ref), for specified translation(s)\n"\
+        "w_seps_d      = Work of separation (strained ref) (DFT), for specified translation(s)\n"\
+        "w_sep_diff_c  = Difference in w_sep_c between tranlsations\n"\
+        "w_sep_diff_d  = Difference in w_sep_d (DFT) between tranlsations\n"\
+        "w_seps_diff_c = Difference in w_seps_c between translations\n"\
+        "w_seps_diff_d = Difference in w_seps_d (DFT) between translations"
+    
+    return string
 
 
 def getCellAngle(base, verbose = 1):

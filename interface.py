@@ -241,9 +241,11 @@ class Interface():
 
         verbose = int, Print extra information
 
-        sort = str("length"/"angle"), which interfaces to give preference to when
-        removing atom/strain duplicates. Length minimizes the cell lengths, angle
-        favors right angles. Default builds the interfaces as initially constructed.
+        sort = str("length"/"angle_right"/"angle_same"), which interfaces to give 
+        preference to when removing atom/strain duplicates. Length minimizes the 
+        cell lengths, angle_right favors right angles. Angle_same favords angles
+        that match the bottom base cell. Default builds the interfaces as 
+        initially constructed.
         """
 
         """Favor cells by first making the desired sorting and then removing duplicates"""
@@ -251,8 +253,13 @@ class Interface():
             p = np.sum(self.getCellLengths(cell = 1), axis = 1)
             si = np.argsort(p)
             self.indexSortInterfaces(index = si)
-        elif sort.lower() == "angle":
+        elif sort.lower() == "angle_right":
             p = np.abs(np.pi / 2 - self.getBaseAngles(cell = 1))
+            si = np.argsort(p)
+            self.indexSortInterfaces(index = si)
+        elif sort.lower() == "angle_same":
+            p = np.abs(ut.getCellAngle(self.base_1[:2, :2], verbose = verbose) -\
+                       self.getBaseAngles(cell = 1))
             si = np.argsort(p)
             self.indexSortInterfaces(index = si)
 
@@ -512,9 +519,12 @@ class Interface():
         but below the specified matches or above the specified matches
         """
 
-        if const is None:
+        if exp is None:
             const, exp = self.getAtomStrainExpression(strain = strain, verbose = verbose - 1,\
                                                       base_1 = base_1, base_2 = base_2)
+        else:
+            const = self.getAtomStrainExpression(strain = strain, verbose = verbose - 1,\
+                                                 base_1 = base_1, base_2 = base_2)[0]
 
         eps = self.getStrain(idx = None, strain = strain, base_1 = base_1, base_2 = base_2)
 
@@ -581,7 +591,7 @@ class Interface():
 
     def removeByAtomStrain(self, keep = 50000, verbose = 1, endpoint = "over",\
                            strain = "eps_mas", tol = 1e-7, max_iter = 350,\
-                           base_1 = None, base_2 = None):
+                           base_1 = None, base_2 = None, exp = None, const = None):
         """Function for removing interfaces based on Atom strain ratios
         
         keep = int, Sets limit to keep this many interfaces
@@ -615,8 +625,9 @@ class Interface():
             return
 
         C, E = self.getAtomStrainMatches(matches = keep, strain = strain, verbose = verbose,\
-                                    max_iter = max_iter, tol = tol, endpoint = endpoint,\
-                                    base_1 = base_1, base_2 = base_2)
+                                             max_iter = max_iter, tol = tol, endpoint = endpoint,\
+                                             base_1 = base_1, base_2 = base_2, exp = exp,\
+                                             const = const)
 
         r = self.getAtomStrainRatio(const = C, exp = E, strain = strain, verbose = verbose,\
                                     base_1 = base_1, base_2 = base_2)
@@ -671,7 +682,8 @@ class Interface():
 
 
     
-    def setArrayProperty(self, prop, idx, t, value, verbose = 1):
+    def setArrayProperty(self, prop, idx = None, t = None, value = None,\
+                         filename = None, verbose = 1):
         """Function for seting, i.e. loading back, values for w_sep* and e_int*
         parameters calculated elsewere (LAMMPS,VASP).
 
@@ -685,6 +697,15 @@ class Interface():
         value = float or array([index, translation]), Value of property to set
 
         verbose = int, Print extra information
+
+        filename = str, Filename to file containing header with translations and
+        index and values corresponding to the header
+        ----------------------
+        0 1 2                   #Translations
+        0 val_00 val_01 val_02  #idx, val, val, val
+        1 val_10 val_11 val_12  #idx, val, val, val
+        4 val_40 val_41 val_42  #idx, val, val, val
+        ----------------------
         """
 
         existing_props = ["w_sep_c", "w_sep_d", "w_seps_c",\
@@ -694,6 +715,12 @@ class Interface():
             string = "Unknown property: %s" % prop
             ut.infoPrint(string)
             return
+
+        """Read file if specified"""
+        if filename is not None:
+            idx, t, value = ut.readPropFile(filename = filename)
+            if idx is None:
+                return
 
         """Check some defaults"""
         if isinstance(idx, (int, np.integer)): idx = [idx]
@@ -981,7 +1008,7 @@ class Interface():
                    limit = None, exp = 1, verbose = 1, min_angle = 10,\
                    remove_asd = True, asd_tol = 7, limit_asr = False,\
                    asr_tol = 1e-7, asr_iter = 350, asr_strain = "eps_mas",\
-                   asr_endpoint = "over", target = None, favor = "default"):
+                   asr_endpoint = "over", target = None, favor = "angle_same"):
         """Main function for finding cell matches. Searches all permutations of 
         n_max, m_max of the top cell at each rotation theta/dTheta and finds the 
         best matches based on strain.
@@ -1015,7 +1042,7 @@ class Interface():
 
         asd_tol = int, Tolerance level for comparing strain (round to this many decimals)
 
-        limit_asr = bool or int, Remove atoms by specifying the number of interfaces
+        limit_asr = int, Remove atoms by specifying the number of interfaces
         to keep below a ratio of atoms to strain.
 
         verbose = int, Print extra information
@@ -1030,9 +1057,10 @@ class Interface():
         asr_endpoint = str("over" / "under") stop the iteration search to reach
         asr_limit over or under the specified limit if a match cant be found.
 
-        favor = str("length"/"angle"), which interfaces to give preference to when
-        removing atom/strain duplicates. Length minimizes the cell lengths, angle
-        favors right angles. Default builds the interfaces as initially constructed.
+        favor = str("length"/"angle_right"/"angle_same"), which interfaces to give 
+        preference to when removing atom/strain duplicates. Length minimizes the 
+        cell lengths, angle_right favors right angles. angle_same favors angles that
+        match the bottom base cell. Default builds the interfaces as initially constructed.
         """
 
         if self.base_1 is None:
@@ -1277,7 +1305,7 @@ class Interface():
 
         """Find duplicates in the combo (nr_atoms, eps_mas) if specified"""
         if remove_asd:
-            keep = self.getAtomStrainDuplicates(tol_mag = asd_tol, verbose = 0, sort = favor)
+            keep = self.getAtomStrainDuplicates(tol_mag = asd_tol, verbose = verbose - 1, sort = favor)
             self.deleteInterfaces(keep, verbose = verbose - 1)
 
             if verbose > 0:
@@ -1600,6 +1628,8 @@ class Interface():
             col, row, N = (1, 1, 1)
         hAx = plt.subplot(row, col, N)
 
+        lw = 1.4
+
         mat = self.cell_1[idx, :, :]
         top = self.cell_2[idx, :, :]
         rot_1 = 0
@@ -1630,26 +1660,25 @@ class Interface():
             ut.overlayLattice(lat = self.base_2, latRep = self.rep_2[idx, :, :],\
                               rot = rot_2, hAx = hAx, ls = '--')
 
-
         """Origo to a"""
         vec_ax = np.array([0, mat[0, 0]])
         vec_ay = np.array([0, mat[1, 0]])
-        hAx.plot(vec_ax, vec_ay, linewidth = 1, color = 'b', label = r"$\vec a_1$")
+        hAx.plot(vec_ax, vec_ay, linewidth = lw, color = 'b', label = r"$\vec a_1$")
 
         """Origo to b"""
         vec_bx = np.array([0, mat[0, 1]])
         vec_by = np.array([0, mat[1, 1]])
-        hAx.plot(vec_bx, vec_by, linewidth = 1, color = 'r', label = r"$\vec a_2$")
+        hAx.plot(vec_bx, vec_by, linewidth = lw, color = 'r', label = r"$\vec a_2$")
 
         """a to a + b"""
         vec_abx = np.array([vec_ax[1], vec_ax[1] + vec_bx[1]])
         vec_aby = np.array([vec_ay[1], vec_ay[1] + vec_by[1]])
-        hAx.plot(vec_abx, vec_aby, linewidth = 1, color = 'k', ls = '-')
+        hAx.plot(vec_abx, vec_aby, linewidth = lw, color = 'k', ls = '-')
 
         """b to b + a"""
         vec_bax = np.array([vec_bx[1], vec_bx[1] + vec_ax[1]])
         vec_bay = np.array([vec_by[1], vec_by[1] + vec_ay[1]])
-        hAx.plot(vec_bax, vec_bay, linewidth = 1, color = 'k', ls = '-')
+        hAx.plot(vec_bax, vec_bay, linewidth = lw, color = 'k', ls = '-')
 
         """Get the extent of the plotted figure"""
         box = np.zeros((2, 4))
@@ -1662,12 +1691,12 @@ class Interface():
         if annotate:
             vec_ax_an = np.array([0, top[0, 0]])
             vec_ay_an = np.array([0, top[1, 0]])
-            hAx.plot(vec_ax_an, vec_ay_an, linewidth = 1, color = 'b',\
+            hAx.plot(vec_ax_an, vec_ay_an, linewidth = lw, color = 'b',\
                                  label = r"$\vec b_1$", ls = '--')
 
             vec_bx_an = np.array([0, top[0, 1]])
             vec_by_an = np.array([0, top[1, 1]])
-            hAx.plot(vec_bx_an, vec_by_an, linewidth = 1, color = 'r',\
+            hAx.plot(vec_bx_an, vec_by_an, linewidth = lw, color = 'r',\
                                  label = r"$\vec b_2$", ls = '--')
 
             vec_abx_an = np.array([vec_ax_an[1], vec_ax_an[1] + vec_bx_an[1]])
@@ -2077,7 +2106,8 @@ class Interface():
         if len(z) > 0:
             z_data, temp, z_lbl, z_leg = self.getData(idx = idx, var = z, ab = ab, translation = translation,\
                                                       compact = True, verbose = verbose, other = other)
-            if len(x_data) != len(y_data) != len(z_data): return
+
+            if len(x_data) != len(y_data) != len(z_data) or z_data == []: return
         else:
             z_data = None
 
@@ -2361,7 +2391,7 @@ class Interface():
         x          = Cell bounding box, x direction (a_1 aligned to x)
         y          = Cell bounding box, y direction (a_1 aligned to x)
         min_bound  = Min(x,y)
-        minwidth   = Minimum width of the cell, min(l)*sin(cell_angle) 
+        min_width  = Minimum width of the cell, min(l)*sin(cell_angle) 
         a_1        = Length of interface cell vector a_1
         a_2        = Length of interface cell vector a_2
         area       = Area of the interface
@@ -2784,8 +2814,11 @@ class Interface():
                 leg.append("C")
 
             else:
-                string = "Unrecognized variable: %s (discarded)" % item
+                string = "Unrecognized variable: %s" % item
                 ut.infoPrint(string)
+                prop = ut.getPlotProperties()
+                avail = " Available properties are "
+                print("=" * 5 + avail + "=" * 19 + "\n" + prop + "\n" + "=" * 50)
 
         return data, lbl_short, lbl_long, leg
 

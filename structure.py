@@ -736,7 +736,7 @@ class Structure():
         
         distance = self.getNearestNeighbors(idx = idx, idx_to = idx_to,\
                                             NN = NN, verbose = verbose)[1]
-        
+
         x = np.arange(1, distance.shape[1] + 1)
         
         if not handle:
