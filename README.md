@@ -1,11 +1,13 @@
 # interfaceBuilder
 
-Package used to build interfaces from initial atomistic structures.
-The approach for finding interfaces is the one developed by the authors in 
-[1] J. Phys.: Condens. Matter 29 (2017) 185901 (7pp)
-
-Beyond interface discovery and generation a lot of functionality
-for analyzing the discovered interfaces are included.
+Package for building and analyzing atomic interfaces. The process of finding interfaces
+is based on the approach described in J. Phys.: Condens. Matter 29 (2017) 185901 (7pp)[1]
+with added freedom to construct any specific match of cell paramters or restrain the search
+to specific paramters of interest. Beyond this the package contains a large number of tools
+to analyze and evaluate the interface data set as well as allow easy exporting of interfaces
+and the corresponding surfaces to common simulation file formats (VASP,LAMMPS,EON). For furter
+analysis calculated paramteres such as work of sepparation and interfacial energy can be 
+loaded back into the data set and combined with the original interface data. 
 
 ## Contains the following files
 
