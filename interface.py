@@ -74,7 +74,7 @@ class Interface():
         self.filename = None
         self.alt_base_1 = None
         self.alt_base_2 = None
-
+        self.order = None
 
 
 
@@ -106,6 +106,8 @@ class Interface():
         self.w_seps_c = self.w_seps_c[keep]
         self.w_seps_d = self.w_seps_d[keep]
 
+        self.order = self.order[keep]
+
         if verbose > 0:
             string = "Interfaces deleted: %i | Interfaces remaining: %i"\
                      % (np.sum(np.logical_not(keep)), np.sum(keep))
@@ -126,7 +128,8 @@ class Interface():
             ut.infoPrint(string)
 
 
-    def sortInterfaces(self, sort = "atoms", opt = None, rev = False):
+    def sortInterfaces(self, sort = "atoms", translation = 0, opt = None, rev = False,\
+                       ab = False):
         """Function for sorting the interfaces bases on predefined properties
 
         Options to sort by
@@ -150,60 +153,43 @@ class Interface():
         rev = True/False, Reverse sort order
 
         opt = int, Index if sorting by an array property, i.e. w_sep*/e_int*
+
+        translation = int, translation, if relevant
+
+        ab = bool, Use the alternative base when retreving the sorting paramters
         """
 
-        sort = sort.lower()
-        sortable_properties = ["atoms",   "angle",  "area", "e_int_d",\
-                               "eps_11",  "eps_22", "eps_12", "w_sep_d",\
-                               "eps_mas", "e_int_c", "w_sep_c", "w_seps_c",\
-                               "base_angle_1", "base_angle_2", "w_seps_d"]
-
-        if sort == "atoms":
-            si = np.argsort(self.atoms)
-        elif sort == "angle":
-            si = np.argsort(self.ang)
-        elif sort == "e_int_c":
-            """Opt int corresponding to chosen translation (0-based as translation)"""
-            si = np.argsort(self.e_int_c[opt])
-        elif sort == "w_sep_c":
-            """Opt int corresponding to chosen translation (0-based as translation)"""
-            si = np.argsort(self.w_sep_c[opt])
-        elif sort == "w_seps_c":
-            """Opt int corresponding to chosen translation (0-based as translation)"""
-            si = np.argsort(self.w_seps_c[opt])
-        elif sort == "e_int_d":
-            """Opt int corresponding to chosen translation (0-based as translation)"""
-            si = np.argsort(self.e_int_d[opt])
-        elif sort == "w_sep_d":
-            """Opt int corresponding to chosen translation (0-based as translation)"""
-            si = np.argsort(self.w_sep_d[opt])
-        elif sort == "w_seps_d":
-            """Opt int corresponding to chosen translation (0-based as translation)"""
-            si = np.argsort(self.w_seps_d[opt])
-        elif sort == "eps_11":
-            si = np.argsort(np.abs(self.eps_11))
-        elif sort == "eps_22":
-            si = np.argsort(np.abs(self.eps_22))
-        elif sort == "eps_12":
-            si = np.argsort(np.abs(self.eps_12))
-        elif sort == "eps_mas":
-            si = np.argsort(self.eps_mas)
-        elif sort == "area":
-            si = np.argsort(self.getAreas())
-        elif sort == "base_angle_1":
-            si = np.argsort(self.getBaseAngles(cell = 1))
-        elif sort == "base_angle_2":
-            si = np.argsort(self.getBaseAngles(cell = 2))
+        if ab:
+            if self.getAB()[0] is None:
+                string = "No alternative base defined"
+                ut.infoPrint(string)
+                return
+            else:
+                ab = 0
         else:
-            print("Unknown sorting option: %s, sortable properties are:" % sort)
-            for i, item in enumerate(sortable_properties):
-                print("%2i. %s" % (i, item))
-            return
+            ab = []
+        
+        data = self.getData(var = sort, ab = ab, translation = translation)[0]
+        if data == []: return
+
+        si = np.argsort(data[0])
 
         if rev:
             si = si[::-1]
 
         self.indexSortInterfaces(index = si)
+
+
+    def setOrder(self, verbose = 1):
+        """Set the order parameter to allow the current sorting to be remebered
+
+        verbose = int, Print extra information
+        """
+
+        self.order = np.arange(self.atoms.shape[0])
+        if verbose > 0:
+            string = "Updated the saved order"
+            ut.infoPrint(string)
 
 
     def indexSortInterfaces(self, index):
@@ -231,6 +217,8 @@ class Interface():
         self.e_int_d = self.e_int_d[index]
         self.w_sep_d = self.w_sep_d[index]
         self.w_seps_d = self.w_seps_d[index]
+        
+        self.order = self.order[index]
 
 
     def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1, sort = "default"):
@@ -301,7 +289,7 @@ class Interface():
         change - Dict with keys {"from": "XX", "to": "YY", "mass": MASS}
         changes the spec = XX to spec = YY and changes mass to MASS
 
-        swap - Dict with keys {"swap_1: "XX", "swap_2": "YY"}
+        swap - Dict with keys {"swap_1": "XX", "swap_2": "YY"}
         switches the spec = XX and spec = YY and switches mass as well
 
         cell = int, Bottom (1) or top (2) cell
@@ -1246,6 +1234,7 @@ class Interface():
         self.e_int_d = np.zeros((self.atoms.shape[0], 1))
         self.w_sep_d = np.zeros((self.atoms.shape[0], 1))
         self.w_seps_d = np.zeros((self.atoms.shape[0], 1))
+        self.order = np.arange(self.atoms.shape[0])        
 
         """Further removal of interfaces based on specified critera follows below"""
 
@@ -1332,6 +1321,7 @@ class Interface():
 
         """Sort the interfaces based on number of atoms"""
         self.sortInterfaces()
+        self.setOrder(verbose = verbose)
 
 
 
@@ -2377,6 +2367,7 @@ class Interface():
         Available values for "var" are
         ------------------------
         idx        = Index of current sorting
+        order      = Saved order
         eps_11     = Eps_11
         eps_22     = Eps_22
         eps_12     = Eps_12
@@ -2458,6 +2449,12 @@ class Interface():
                 lbl_short.append("Index")
                 lbl_long.append("Index")
                 leg.append("I")
+
+            elif item.lower() == "order":
+                data.append(self.order)
+                lbl_short.append("Order")
+                lbl_long.append("Order")
+                leg.append("O")
 
             elif item.lower() == "eps_11":
                 data.append(self.getStrain(idx = idx, strain = "eps_11", base_1 = b1, base_2 = b2))

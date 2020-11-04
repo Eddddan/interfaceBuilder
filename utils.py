@@ -288,6 +288,7 @@ def getPlotProperties():
     """Return available keyword properties"""
 
     string = "idx           = Index of current sorting\n"\
+        "order         = Saved order\n"\
         "eps_11        = Eps_11\n"\
         "eps_22        = Eps_22\n"\
         "eps_12        = Eps_12\n"\
