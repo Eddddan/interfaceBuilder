@@ -38,6 +38,7 @@ def getInputs(lattice):
 
         mass = np.array([183.84, 12.0107])
 
+
     elif lattice == "WC0001_V":
         """HCP WC Lattice with 0001 surface relaxed using LAMMPS"""
         """Updated 2020-08-25, ENCUT=520, KPTS=21x21x21"""
@@ -95,6 +96,48 @@ def getInputs(lattice):
         spec[3] = 'W'
 
         mass = np.array([12.0107, 12.0107, 183.84, 183.84])
+
+
+    elif lattice == "WC10-10_S_L":
+        """HCP WC Lattice with 10-10 (S) surface relaxed using LAMMPS"""
+        """Updated 2020-11-04"""
+        cell = np.array([[2.916589,         0, 0       ],\
+                         [       0,  2.812102, 0       ],\
+                         [       0,         0, 5.051681]])
+
+        pos = np.array([[       0,        0,        0],\
+                        [1.458295,        0, 2.525840],\
+                        [1.458295, 1.406051, 0.841947],\
+                        [       0, 1.406051, 3.367787]])
+
+        spec = np.chararray(shape = 4, itemsize = 2)
+        spec[0] = 'W'
+        spec[1] = 'W'
+        spec[2] = 'C'
+        spec[3] = 'C'
+
+        mass = np.array([183.84, 183.84, 12.0107, 12.0107])
+
+
+    elif lattice == "WC10-10_S_V":
+        """HCP WC Lattice with 10-10 (S) surface relaxed using VASP"""
+        """Updated 2020-11-05, ENCUT=520, KPTS=17x17x17"""
+        cell = np.array([[2.918897,         0, 0       ],\
+                         [       0,  2.844672, 0       ],\
+                         [       0,         0, 5.055714]])
+
+        pos = np.array([[       0,        0,        0],\
+                        [1.459449,        0, 2.527856],\
+                        [1.459449, 1.422336, 0.842540],\
+                        [       0, 1.422336, 3.370396]])
+
+        spec = np.chararray(shape = 4, itemsize = 2)
+        spec[0] = 'W'
+        spec[1] = 'W'
+        spec[2] = 'C'
+        spec[3] = 'C'
+
+        mass = np.array([183.84, 183.84, 12.0107, 12.0107])
 
 
     elif lattice == "W100_L":

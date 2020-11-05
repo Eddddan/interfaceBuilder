@@ -441,7 +441,7 @@ class Interface():
                 return np.vstack((eps_11, eps_22, eps_12))
         
 
-    def getAtomStrainRatio(self, strain = "eps_mas", const = None, exp = 1, verbose = 1,\
+    def getAtomStrainRatio(self, strain = "eps_mas", const = None, exp = None, verbose = 1,\
                            base_1 = None, base_2 = None):
         """Get the property atoms - A * abs(strain) ** B
 
@@ -475,7 +475,7 @@ class Interface():
         return self.atoms - const * np.abs(eps) ** exp
 
 
-    def getAtomStrainMatches(self, matches = 100, const = None, exp = 1,\
+    def getAtomStrainMatches(self, matches = 100, const = None, exp = None,\
                              strain = "eps_mas", verbose = 1, max_iter = 500,\
                              tol = 1e-7, endpoint = "over", base_1 = None,\
                              base_2 = None):
@@ -534,7 +534,7 @@ class Interface():
         return C, E
 
 
-    def getAtomStrainIdx(self, matches = 100, const = None, exp = 1,\
+    def getAtomStrainIdx(self, matches = 100, const = None, exp = None,\
                              strain = "eps_mas", verbose = 1, max_iter = 500,\
                              tol = 1e-7, endpoint = "over", base_1 = None, base_2 = None):
         """Function for returning the index of interfaces below the specified ratio
