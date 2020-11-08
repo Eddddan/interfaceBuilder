@@ -36,15 +36,15 @@ class Interface():
         self.atoms = None
         self.ang = None
 
-        """E_s1/A + E_s2/A - E_i/A(slabs (unstrained reference) - Interface)"""
+        """(E_s1 + E_s2 - E_i)/A"""
         self.w_sep_c = None
         self.w_sep_d = None
 
-        """E_s1/A + E_s2/A - E_i/A (slabs (strained reference) - Interface)"""
+        """(E_s1 + E_s2(strained) - E_i)/A"""
         self.w_seps_c = None
         self.w_seps_d = None
 
-        """E_i/A - E_b1/A - E_b2/A (Interface - bulk)"""
+        """(E_i - E_b1 - E_b2)/A"""
         self.e_int_c = None
         self.e_int_d = None
 
@@ -128,27 +128,11 @@ class Interface():
             ut.infoPrint(string)
 
 
-    def sortInterfaces(self, sort = "atoms", translation = 0, opt = None, rev = False,\
+    def sortInterfaces(self, sort = "order", translation = 0, opt = None, rev = False,\
                        ab = False):
         """Function for sorting the interfaces bases on predefined properties
 
-        Options to sort by
-        ------------------
-        atoms = Nr of atoms
-        angle = a/b cell angles
-        area = area of the interfaces
-        eps_11 = eps_11
-        eps_22 = eps_22
-        eps_12 = eps_12
-        eps_mas = eps_mas
-        base_angle_1 = base angle of bottom cell
-        base_angle_2 = base angle of top cell
-        w_sep_c = work of sepparation, unstrained reference
-        w_seps_c = work of sepparation, strained reference
-        w_sep_d = DFT level work of sepparation, unstrained reference
-        w_seps_d = DFT level work of sepparation, strained reference
-        e_int_c = interfacial energy
-        e_int_d = DFT level interfacial energy
+        Options to sort by can be seen by looking at the getData method
 
         rev = True/False, Reverse sort order
 
@@ -621,10 +605,10 @@ class Interface():
                                     base_1 = base_1, base_2 = base_2)
         self.deleteInterfaces(keep = (r < 0), verbose = verbose)
         
-        self.indexSortInterfaces(index = np.argsort(r[r < 0]))
-        if verbose > 0:
-            string = "Sorted by Atom Strain ratio atom - A*abs(strain)**B with A,B: %.3e, %.3e" % (C, E)
-            ut.infoPrint(string)
+        #self.indexSortInterfaces(index = np.argsort(r[r < 0]))
+        #if verbose > 0:
+        #    string = "Sorted by Atom Strain ratio atom - A*abs(strain)**B with A,B: %.3e, %.3e" % (C, E)
+        #    ut.infoPrint(string)
 
 
 
@@ -669,6 +653,46 @@ class Interface():
         return A, B
 
 
+    def buildEint(self, version = "classical", verbose = 1):
+        """Function for constructing the interfacial energies from work of separation
+        data together with surface energies from W = sigma_1 + sigma_2 - gamma
+
+        version = str("classical"/"dft"), Build from classical data or DFT data
+        any match up to the compleat word workes
+
+        verbose = int, Print extra information
+        """
+
+        if "classical".startswith(version.lower()):
+            if self.parameters["sigma_c_12"] == 0 or self.parameters["sigma_c_21"] == 0:
+                string = "Surface energies sigma_c_12 and/or sigma_c_21 not set"
+                ut.infoPrint(string)
+                return
+            else:
+                """Calculate the interfacial energies"""
+                self.e_int_c = self.parameters["sigma_c_12"] + self.parameters["sigma_c_21"] - self.w_sep_c
+                """Set to zero in all places where w_sep is not set"""
+                self.e_int_c[self.w_sep_c == 0] = 0
+                
+                if verbose > 0:
+                    string = "e_int_c set from w_sep_c data of shape (%i,%i)" % (self.w_sep_c.shape)
+                    ut.infoPrint(string)
+
+        if "dft".startswith(version.lower()):
+            if self.parameters["sigma_d_12"] == 0 or self.parameters["sigma_d_21"] == 0:
+                string = "Surface energies sigma_d_12 and/or sigma_d_21 not set"
+                ut.infoPrint(string)
+                return
+            else:
+                """Calculate the interfacial energies"""
+                self.e_int_d = self.parameters["sigma_d_12"] + self.parameters["sigma_d_21"] - self.w_sep_d
+                """Set to zero in all places where w_sep is not set"""
+                self.e_int_d[self.w_sep_d == 0] = 0
+
+                if verbose > 0:
+                    string = "e_int_d set from w_sep_d data of shape (%i,%i)" (self.w_sep_d.shape)
+                    ut.infoPrint(string)
+        
     
     def setArrayProperty(self, prop, idx = None, t = None, value = None,\
                          filename = None, verbose = 1):
@@ -1319,8 +1343,8 @@ class Interface():
                                     strain = asr_strain, endpoint = asr_endpoint,\
                                     verbose = verbose)
 
-        """Sort the interfaces based on number of atoms"""
-        self.sortInterfaces()
+        """Sort the interfaces based on number of atoms and reset the base order parameter"""
+        self.sortInterfaces(sort = "atoms")
         self.setOrder(verbose = verbose)
 
 
@@ -3384,6 +3408,9 @@ class Interface():
             string = "Z-distance fixed (between,above): %.2f | Vacuum added (above): %.2f"\
                      % (d + void, vacuum)
             ut.infoPrint(string)
+            if ab:
+                string = "Interface constructed with an alternative base"
+                ut.infoPrint(string)
 
         return F, pos, species, mass
 
