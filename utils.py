@@ -312,10 +312,10 @@ def getPlotProperties():
         "e_int_d       = Interfacial energy (DFT), for specified translation(s)\n"\
         "e_int_diff_c  = Difference in Interfacial energy between translations\n"\
         "e_int_diff_d  = Difference in Interfacial energy (DFT) between translations\n"\
-        "w_sep_c       = Work of separation, for specified translation(s)\n"\
-        "w_sep_d       = Work of separation (DFT), for specified translation(s)\n"\
-        "w_seps_c      = Work of separation (strained ref), for specified translation(s)\n"\
-        "w_seps_d      = Work of separation (strained ref) (DFT), for specified translation(s)\n"\
+        "w_sep_c       = Work of adhesion, for specified translation(s)\n"\
+        "w_sep_d       = Work of adhesion (DFT), for specified translation(s)\n"\
+        "w_seps_c      = Work of adhesion (strained ref), for specified translation(s)\n"\
+        "w_seps_d      = Work of adhesion (strained ref) (DFT), for specified translation(s)\n"\
         "w_sep_diff_c  = Difference in w_sep_c between tranlsations\n"\
         "w_sep_diff_d  = Difference in w_sep_d (DFT) between tranlsations\n"\
         "w_seps_diff_c = Difference in w_seps_c between translations\n"\

@@ -25,3 +25,4 @@ plotParams = {"font.size": 10,\
               "legend.fontsize": "small"}
 
 plt.rcParams.update(**plotParams)
+

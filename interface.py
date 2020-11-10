@@ -662,15 +662,18 @@ class Interface():
 
         verbose = int, Print extra information
         """
+        keys_c = ["sigma_c_11", "sigma_c_12", "sigma_c_21", "sigma_c_22"]
+        keys_c = ["sigma_d_11", "sigma_d_12", "sigma_d_21", "sigma_d_22"]
 
         if "classical".startswith(version.lower()):
-            if self.parameters["sigma_c_12"] == 0 or self.parameters["sigma_c_21"] == 0:
-                string = "Surface energies sigma_c_12 and/or sigma_c_21 not set"
+            if np.sum([self.parameters[k] == 0 for k in keys_c]) > 0:
+                string = "Surface energies not set"
                 ut.infoPrint(string)
                 return
             else:
                 """Calculate the interfacial energies"""
-                self.e_int_c = self.parameters["sigma_c_12"] + self.parameters["sigma_c_21"] - self.w_sep_c
+                sigma = np.sum([self.parameters[k] for k in keys_c])
+                self.e_int_c = sigma - self.w_sep_c
                 """Set to zero in all places where w_sep is not set"""
                 self.e_int_c[self.w_sep_c == 0] = 0
                 
@@ -679,13 +682,14 @@ class Interface():
                     ut.infoPrint(string)
 
         if "dft".startswith(version.lower()):
-            if self.parameters["sigma_d_12"] == 0 or self.parameters["sigma_d_21"] == 0:
-                string = "Surface energies sigma_d_12 and/or sigma_d_21 not set"
+            if np.sum([self.parameters[k] == 0 for k in keys_d]) > 0:
+                string = "Surface energies not set"
                 ut.infoPrint(string)
                 return
             else:
                 """Calculate the interfacial energies"""
-                self.e_int_d = self.parameters["sigma_d_12"] + self.parameters["sigma_d_21"] - self.w_sep_d
+                sigma = np.sum([self.parameters[k] for k in keys_c])
+                self.e_int_d = sigma - self.w_sep_d
                 """Set to zero in all places where w_sep is not set"""
                 self.e_int_d[self.w_sep_d == 0] = 0
 
@@ -2057,7 +2061,7 @@ class Interface():
 
     def plotProperty(self, x, y, z = [], idx = None, col = 1, row = 1, N = 1, 
                      save = False, dpi = 100, format = "pdf", verbose = 1, handle = False,\
-                     translation = None, title = None, other = None, ab = [],\
+                     translation = None, title = None, other = None, ab = [], mew = 1.2,\
                      m = "o", ms = 2, **kwargs):
         """Function for plotting properties agains each other.
         plot x vs. y vs. z (optional) with z data values displayed in a colormap.
@@ -2131,7 +2135,7 @@ class Interface():
 
         ls = kwargs.pop("linestyle", "none")
         ms = kwargs.pop("markersize", ms)
-        mew = kwargs.pop("markeredgewidth", 1)
+        mew = kwargs.pop("markeredgewidth", mew)
 
         if z_data is None:
 
@@ -2204,6 +2208,7 @@ class Interface():
         hP[0].set_pickradius(2)
         anP = hAx.plot([], [], marker = 'o', ms = 6, color = 'k', mew = 2, mfc = 'None',\
                        linestyle = 'None')
+
         plt.tight_layout()
 
         """Function to allow clickable points to display information"""
@@ -2415,10 +2420,10 @@ class Interface():
         e_int_d       = Interfacial energy (DFT), for specified translation(s)
         e_int_diff_c  = Difference in Interfacial energy between translations
         e_int_diff_d  = Difference in Interfacial energy (DFT) between translations
-        w_sep_c       = Work of separation, for specified translation(s)
-        w_sep_d       = Work of separation (DFT), for specified translation(s)
-        w_seps_c      = Work of separation (strained ref), for specified translation(s)
-        w_seps_d      = Work of separation (strained ref) (DFT), for specified translation(s)
+        w_sep_c       = Work of adhesion, for specified translation(s)
+        w_sep_d       = Work of adhesion (DFT), for specified translation(s)
+        w_seps_c      = Work of adhesion (strained ref), for specified translation(s)
+        w_seps_d      = Work of adhesion (strained ref) (DFT), for specified translation(s)
         w_sep_diff_c  = Difference in w_sep_c between tranlsations
         w_sep_diff_d  = Difference in w_sep_d (DFT) between tranlsations
         w_seps_diff_c = Difference in w_seps_c between translations
@@ -2735,12 +2740,12 @@ class Interface():
                     for t in translation:
                         data.append(self.w_sep_c[idx, :][:, t])
                         lbl_short.append("W$_{%i}^{C}$, ($eV/\AA^2$)" % t)
-                        lbl_long.append("Work of Separation, ($eV/\AA^2$)")
+                        lbl_long.append("Work of Adhesion, ($eV/\AA^2$)")
                         leg.append("W$_{%i}^{C}$" % t)
                 else:
                     data.append(self.w_sep_c[idx, :][:, translation].T)
                     lbl_short.append("W$^{C}$, ($eV/\AA^2$)")
-                    lbl_long.append("Work of Separation, ($eV/\AA^2$)")
+                    lbl_long.append("Work of Adhesion, ($eV/\AA^2$)")
                     [leg.append("W$_{%i}^{C}$" % t) for t in translation]
 
             elif item.lower() == "w_sep_d":
@@ -2754,40 +2759,40 @@ class Interface():
                     for t in translation:
                         data.append(self.w_sep_d[idx, :][:, t])
                         lbl_short.append("W$_{%i}^{D}$, ($eV/\AA^2$)" % t)
-                        lbl_long.append("Work of Separation (DFT), ($eV/\AA^2$)")
+                        lbl_long.append("Work of Adhesion (DFT), ($eV/\AA^2$)")
                         leg.append("W$_{%i}^{D}$" % t)
                 else:
                     data.append(self.w_sep_d[idx, :][:, translation].T)
                     lbl_short.append("W$^{D}$, ($eV/\AA^2$)")
-                    lbl_long.append("Work of Separation (DFT), ($eV/\AA^2$)")
+                    lbl_long.append("Work of Adhesion (DFT), ($eV/\AA^2$)")
                     [leg.append("W$_{%i}^{D}$" % t) for t in translation]
 
             elif item.lower() == "w_sep_diff_c":
                 data.append(np.max(self.w_sep_c[idx, :], axis = 1) -\
                             np.min(self.w_sep_c[idx, :], axis = 1))
                 lbl_short.append("$\Delta$W$^{C}$, ($eV/\AA^2$)")
-                lbl_long.append("$\Delta$Work of Separation, ($eV/\AA^2$)")
+                lbl_long.append("$\Delta$Work of Adhesion, ($eV/\AA^2$)")
                 leg.append("$\Delta$W$^{C}$")
 
             elif item.lower() == "w_sep_diff_d":
                 data.append(np.max(self.w_sep_d[idx, :], axis = 1) -\
                             np.min(self.w_sep_d[idx, :], axis = 1))
                 lbl_short.append("$\Delta$W$^{D}$, ($eV/\AA^2$)")
-                lbl_long.append("$\Delta$Work of Separation (DFT), ($eV/\AA^2$)")
+                lbl_long.append("$\Delta$Work of Adhesion (DFT), ($eV/\AA^2$)")
                 leg.append("$\Delta$W$^{D}$")
 
             elif item.lower() == "w_seps_diff_c":
                 data.append(np.max(self.w_seps_c[idx, :], axis = 1) -\
                             np.min(self.w_seps_c[idx, :], axis = 1))
                 lbl_short.append("$\Delta$W$^{SC}$, ($eV/\AA^2$)")
-                lbl_long.append("$\Delta$Work of Separation (Strained), ($eV/\AA^2$)")
+                lbl_long.append("$\Delta$Work of Adhesion (Strained), ($eV/\AA^2$)")
                 leg.append("$\Delta$W$^{SC}$")
 
             elif item.lower() == "w_seps_diff_d":
                 data.append(np.max(self.w_seps_d[idx, :], axis = 1) -\
                             np.min(self.w_seps_d[idx, :], axis = 1))
                 lbl_short.append("$\Delta$W$^{SD}$, ($eV/\AA^2$)")
-                lbl_long.append("$\Delta$Work of Separation (Strained) (DFT), ($eV/\AA^2$)")
+                lbl_long.append("$\Delta$Work of Adhesion (Strained) (DFT), ($eV/\AA^2$)")
                 leg.append("$\Delta$W$^{SD}$")
 
             elif item.lower() == "w_seps_c":
@@ -2801,12 +2806,12 @@ class Interface():
                     for t in translation:
                         data.append(self.w_seps_c[idx, :][:, t])
                         lbl_short.append("W$^{SC}_{%i}$, ($eV/\AA^2$)" % t)
-                        lbl_long.append("Work of Separation (Strained), ($eV/\AA^2$)")
+                        lbl_long.append("Work of Adhesion (Strained), ($eV/\AA^2$)")
                         leg.append("W$_{%i}^{SC}$" % t)
                 else:
                     data.append(self.w_seps_c[idx, :][:, translation].T)
                     lbl_short.append("W$^{SC}$, ($eV/\AA^2$)")
-                    lbl_long.append("Work of Separation (Strained), ($eV/\AA^2$)")
+                    lbl_long.append("Work of Adhesion (Strained), ($eV/\AA^2$)")
                     [leg.append("W$_{%i}^{SC}$" % t) for t in translation]
 
             elif item.lower() == "w_seps_d":
@@ -2820,12 +2825,12 @@ class Interface():
                     for t in translation:
                         data.append(self.w_seps_d[idx, :][:, t])
                         lbl_short.append("W$^{SD}_{%i}$, ($eV/\AA^2$)" % t)
-                        lbl_long.append("Work of Separation (Strained) (DFT), ($eV/\AA^2$)")
+                        lbl_long.append("Work of Adhesion (Strained) (DFT), ($eV/\AA^2$)")
                         leg.append("W$^{SD}_{%i}$" % t)
                 else:
                     data.append(self.w_seps_d[idx, :][:, translation].T)
                     lbl_short.append("W$^{SD}$, ($eV/\AA^2$)")
-                    lbl_long.append("Work of Separation (Strained) (DFT), ($eV/\AA^2$)")
+                    lbl_long.append("Work of Adhesion (Strained) (DFT), ($eV/\AA^2$)")
                     [leg.append("W$_{%i}^{SD}$" % t) for t in translation]
 
             elif item.lower() == "other":
