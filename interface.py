@@ -2061,7 +2061,7 @@ class Interface():
 
     def plotProperty(self, x, y, z = [], idx = None, col = 1, row = 1, N = 1, 
                      save = False, dpi = 100, format = "pdf", verbose = 1, handle = False,\
-                     translation = None, title = None, other = None, ab = [], mew = 1.2,\
+                     translation = None, title = None, other = None, ab = [],\
                      m = "o", ms = 2, **kwargs):
         """Function for plotting properties agains each other.
         plot x vs. y vs. z (optional) with z data values displayed in a colormap.
@@ -2135,7 +2135,6 @@ class Interface():
 
         ls = kwargs.pop("linestyle", "none")
         ms = kwargs.pop("markersize", ms)
-        mew = kwargs.pop("markeredgewidth", mew)
 
         if z_data is None:
 
@@ -2145,7 +2144,7 @@ class Interface():
 
             for i in range(len(x_data)):
 
-                tP = hAx.plot(x_data[i].T, y_data[i].T, linestyle = ls, mew = mew, marker = m[i],\
+                tP = hAx.plot(x_data[i].T, y_data[i].T, linestyle = ls, marker = m[i],\
                               markersize = ms, **kwargs)
 
                 [hP.append(lines) for lines in tP]
@@ -2164,6 +2163,8 @@ class Interface():
             vmin = kwargs.pop("vmin", zmin)
             vmax = kwargs.pop("vmax", zmax)
             c = kwargs.pop("color", 'b')
+            lw = kwargs.pop("linewidth", 1.2)
+
 
             for i in range(len(x_data)):
 
@@ -2184,7 +2185,7 @@ class Interface():
 
                     tP = hAx.scatter(x_data[i][j, :], y_data[i][k, :], c = z_data[i][l, :],\
                                      vmin = vmin, vmax = vmax, cmap = cmap, marker = m[i],\
-                                     label = "", **kwargs, s = ms, linewidths = mew)
+                                     label = "", s = ms, linewidth = lw, **kwargs)
 
                     hP.append(tP)
 
@@ -2402,6 +2403,7 @@ class Interface():
         eps_12     = Eps_12
         eps_mas    = Eps_mas
         eps_max    = max(eps_11, eps_22, eps_12)
+        eps_max_a  = |max(eps_11, eps_22, eps_12)|
         atoms      = Nr of atoms
         angle      = Angle between interface cell vectors
         rotation   = Initial rotation at creation
@@ -2535,6 +2537,17 @@ class Interface():
                     leg.append("Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})$")
                 else:
                     leg.append("Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})^{\dagger}$")
+
+            elif item.lower() == "eps_max_a":
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)
+                data.append(np.max(np.abs(eps_stack), axis = 0))
+                lbl_short.append("Max$(|\epsilon_{11},\epsilon_{22},\epsilon_{12}|)$")
+                lbl_long.append("Max$(|\epsilon_{11},\epsilon_{22},\epsilon_{12}|)$")
+                if b1 is None:
+                    leg.append("Max$(|\epsilon_{11},\epsilon_{22},\epsilon_{12}|)$")
+                else:
+                    leg.append("Max$(|\epsilon_{11},\epsilon_{22},\epsilon_{12}|)^{\dagger}$")
 
             elif item.lower() == "atoms":
                 data.append(self.atoms[idx])

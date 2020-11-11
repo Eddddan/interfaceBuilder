@@ -20,6 +20,7 @@ plotParams = {"font.size": 10,\
               "lines.marker": "None",\
               "lines.markersize": 2,\
               "lines.markerfacecolor": "None",\
+              "lines.markeredgewidth": 1,\
               "legend.edgecolor": "0",\
               "legend.framealpha": 1,\
               "legend.fontsize": "small"}

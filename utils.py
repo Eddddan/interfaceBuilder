@@ -294,6 +294,7 @@ def getPlotProperties():
         "eps_12        = Eps_12\n"\
         "eps_mas       = Eps_mas\n"\
         "eps_max       = max(eps_11, eps_22, eps_12)\n"\
+        "eps_max_a     = max(|eps_11, eps_22, eps_12|)\n"\
         "atoms         = Nr of atoms\n"\
         "angle         = Angle between interface cell vectors\n"\
         "rotation      = Initial rotation at creation\n"\
