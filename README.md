@@ -25,6 +25,18 @@ Structures - Folder with some example structures that can be loaded
 Scripts    - Folder with a few scripts for some of the basic operations  
 
 ----------------------------
+
+##Used packages
+
+----------------------------
+The following python packages are used in this package with the version used in the creation
+indicated.
+
+numpy (1.18.1)
+scipy (1.3.2)
+pandas (1.0.0)
+matplotlib (3.3.2)
+
 ## Example operations
 
 They easiest way of working with the package and setting up interface combinations

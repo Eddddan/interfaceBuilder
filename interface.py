@@ -62,14 +62,14 @@ class Interface():
             self.mass_1 = None
             self.mass_2 = None
         else:
-            self.base_1 = structure_a.cell
-            self.base_2 = structure_b.cell
-            self.pos_1 = structure_a.pos
-            self.pos_2 = structure_b.pos
-            self.spec_1 = structure_a.type_n
-            self.spec_2 = structure_b.type_n
-            self.mass_1 = structure_a.mass
-            self.mass_2 = structure_b.mass
+            self.base_1 = structure_a.cell.copy()
+            self.base_2 = structure_b.cell.copy()
+            self.pos_1 = structure_a.pos.copy()
+            self.pos_2 = structure_b.pos.copy()
+            self.spec_1 = structure_a.type_n.copy()
+            self.spec_2 = structure_b.type_n.copy()
+            self.mass_1 = structure_a.mass.copy()
+            self.mass_2 = structure_b.mass.copy()
 
         self.filename = None
         self.alt_base_1 = None
@@ -225,15 +225,20 @@ class Interface():
             p = np.sum(self.getCellLengths(cell = 1), axis = 1)
             si = np.argsort(p)
             self.indexSortInterfaces(index = si)
+            string = "Favoring: Minimum Circumference"
         elif sort.lower() == "angle_right":
             p = np.abs(np.pi / 2 - self.getBaseAngles(cell = 1))
             si = np.argsort(p)
             self.indexSortInterfaces(index = si)
+            string = "Favoring: Right Angles"
         elif sort.lower() == "angle_same":
             p = np.abs(ut.getCellAngle(self.base_1[:2, :2], verbose = verbose) -\
                        self.getBaseAngles(cell = 1))
             si = np.argsort(p)
             self.indexSortInterfaces(index = si)
+            string = "Favoring: Base Angle Match"
+        else:
+            string = "Favoring: As Constructed"
 
         """Find unique strains within specified tolerances"""
         values = np.zeros((self.atoms.shape[0], 2))
@@ -243,6 +248,7 @@ class Interface():
         index = np.in1d(np.arange(self.atoms.shape[0]), unique)
 
         if verbose > 0:
+            ut.infoPrint(string)
             string = "Unique strain/atom combinations found: %i, tol: 1e-%i (all exact matches keept)"\
                      % (np.sum(index), tol_mag)
             ut.infoPrint(string)
@@ -1024,7 +1030,7 @@ class Interface():
                    limit = None, exp = 1, verbose = 1, min_angle = 10,\
                    remove_asd = True, asd_tol = 7, limit_asr = False,\
                    asr_tol = 1e-7, asr_iter = 350, asr_strain = "eps_mas",\
-                   asr_endpoint = "over", target = None, favor = "angle_same"):
+                   asr_endpoint = "over", target = None, favor = "length"):
         """Main function for finding cell matches. Searches all permutations of 
         n_max, m_max of the top cell at each rotation theta/dTheta and finds the 
         best matches based on strain.
@@ -1076,7 +1082,8 @@ class Interface():
         favor = str("length"/"angle_right"/"angle_same"), which interfaces to give 
         preference to when removing atom/strain duplicates. Length minimizes the 
         cell lengths, angle_right favors right angles. angle_same favors angles that
-        match the bottom base cell. Default builds the interfaces as initially constructed.
+        match the bottom base cell. Any other keyword builds the interfaces as initially 
+        constructed.
         """
 
         if self.base_1 is None:
@@ -1322,7 +1329,7 @@ class Interface():
 
         """Find duplicates in the combo (nr_atoms, eps_mas) if specified"""
         if remove_asd:
-            keep = self.getAtomStrainDuplicates(tol_mag = asd_tol, verbose = verbose - 1, sort = favor)
+            keep = self.getAtomStrainDuplicates(tol_mag = asd_tol, verbose = verbose, sort = favor)
             self.deleteInterfaces(keep, verbose = verbose - 1)
 
             if verbose > 0:
@@ -2267,7 +2274,7 @@ class Interface():
                           save = False, dpi = 100, format = "pdf", row = 1,\
                           col = 1, N = 1, handle = False, cmap = "tab10",\
                           m = 'o', ls = 'None', delta = False, verbose = 1,\
-                          ms = 3, ab = [], shrink_idx = False,\
+                          ms = 3, ab = [], shrink_idx = False, title = None,\
                           **kwargs):
         """Function for plotting comparisons of interface properties
         
@@ -2314,6 +2321,8 @@ class Interface():
         specified (col, row, N) but do not display the figure
 
         shrink_idx = bool, Plot with index 0:range(len(idx)) not actual idx
+
+        title = str, Titel for the plot
 
         **kwargs = any matplotlib plot kwargs
         """
@@ -2371,7 +2380,10 @@ class Interface():
 
         hAx.set_ylabel(ax[0])
         hAx.set_xlabel("Index")
-        hAx.set_title("Comparison")
+        if title is not None:
+            hAx.set_title(title)
+        else:
+            hAx.set_title("Comparison")
         ncol = 1
         if len(leg) > 3: ncol = 2
         hAx.legend(ncol = ncol)
