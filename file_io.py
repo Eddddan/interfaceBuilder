@@ -546,7 +546,7 @@ def readData(filename, format = "eon", verbose = 1):
         sys.exit()
 
 
-def writeData(filename, atoms, format = "eon", sd = False, verbose = 1):
+def writeData(filename, atoms, format = "eon", sd = False, direct = False, verbose = 1):
     """Entry point for loading geometry files"""
 
     if "eon".startswith(format.lower()):
@@ -556,7 +556,7 @@ def writeData(filename, atoms, format = "eon", sd = False, verbose = 1):
         writeLAMMPS(filename, atoms, verbose = verbose)
 
     elif "vasp".startswith(format.lower()):
-        writeVASP(filename, atoms, sd = sd, verbose = verbose)
+        writeVASP(filename, atoms, sd = sd, direct = direct, verbose = verbose)
 
     elif "xyz".startswith(format.lower()):
         writeXYZ(filename, atoms, verbose = verbose)

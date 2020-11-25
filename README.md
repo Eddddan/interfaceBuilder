@@ -128,7 +128,7 @@ i.plotProperty(x = "angle", y  = "eps_mas", z = "density", idx = range(500), col
 Again plots the angle against the mean absolute strain but with the nr of atoms / area in the top interface surface (the strained one) in comparison 
 to the atoms / area in the unstrained case, above 1 denser than usual below 1 less dense then usual. Using the plasma colormap.
 
-Write i.plotProperties? to see supported plot options.
+Write i.plotProperty? to see supported plot options. And write i.getData? to see all available keywords
 ```
 someValues = np.random.random(500)
 i.plotProperty(x = "angle", y  = "other", other = someValues, z = "density", idx = range(500), colormap = "plasma")

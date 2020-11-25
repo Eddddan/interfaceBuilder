@@ -284,6 +284,17 @@ def getRotMatrix(ang, dim = 2, verbose = 1):
     return R[0:dim, 0:dim]
 
 
+def runningMean(data, chunk = 5):
+    """Function for gettig the running mean of an array of data
+
+    data = 1d np.array, Data to get running mean of
+
+    chunk = int, Nr of point to use when calculating the mean
+    """
+
+    return np.convolve(data, np.ones((chunk,)) / chunk, mode = "valid")
+
+
 def getPlotProperties():
     """Return available keyword properties"""
 
@@ -301,6 +312,8 @@ def getPlotProperties():
         "norm          = Sqrt(eps_11^2+eps_22^2+eps_12^2)\n"\
         "trace         = |eps_11|+|eps_22|\n"\
         "norm_trace    = Sqrt(eps_11^2+eps_22^2)\n"\
+        "max_diag      = max(eps_11, eps_22)\n"\
+        "max_diag_a    = max(|eps_11, eps_22|)\n"\
         "x             = Cell bounding box, x direction (a_1 aligned to x)\n"\
         "y             = Cell bounding box, y direction (a_1 aligned to x)\n"\
         "min_bound     = Min(x,y)\n"\
@@ -541,7 +554,31 @@ def getTranslation(translation, surface, verbose = 1):
     """
 
     if not isinstance(translation, (int, np.integer)):
-        return np.array([0, 0, 0]), "Top"
+        if isinstance(translation, (list, np.ndarray)) and np.shape(translation)[0] > 1:
+            T = np.array([translation[0], translation[1], 0])
+            site = "Other"
+            if verbose > 0:
+                string = "Surface: %s | Translation made to site: %s"\
+                    % (surface, site)
+                infoPrint(string)
+            return T, site
+        else:
+            T = np.array([0, 0, 0])
+            site = "Top"
+            if verbose > 0:
+                string = "Surface: %s | Translation made to site: %s"\
+                    % (surface, site)
+                infoPrint(string)
+            return T, site
+
+    if surface is None:
+        T = np.array([0, 0, 0])
+        site = "Top"
+        if verbose > 0:
+            string = "Surface: %s | Translation made to site: %s"\
+                 % (surface, site)
+            infoPrint(string)
+        return T, site
 
     if surface.lower() == "0001":
         if translation == 0:

@@ -213,15 +213,27 @@ class Interface():
 
         verbose = int, Print extra information
 
-        sort = str("length"/"angle_right"/"angle_same"), which interfaces to give 
-        preference to when removing atom/strain duplicates. Length minimizes the 
-        cell lengths, angle_right favors right angles. Angle_same favords angles
-        that match the bottom base cell. Default builds the interfaces as 
-        initially constructed.
+        sort = str("length"/"angle_right"/"angle_same") or float or array(float,), 
+        which interfaces to give preference to when removing atom/strain duplicates. 
+        Length minimizes the cell lengths, angle_right favors right angles. 
+        Angle_same favors angles that match the bottom base cell. Default (or any other)
+        builds the interfaces as initially constructed. A float or an array of floats 
+        means the best matches to that angle or any of the angles in the case of an array.
         """
 
         """Favor cells by first making the desired sorting and then removing duplicates"""
-        if sort.lower() == "length":
+        if isinstance(sort, (int, np.integer, float)):
+            p = np.abs(self.getBaseAngles(cell = 1) - np.deg2rad(sort))
+            si = np.argsort(p)
+            self.indexSortInterfaces(index = si)
+            string = "Favoring: Specified angle %.2f deg" % sort
+        elif isinstance(sort, (list, np.ndarray)):
+            ang = np.tile(self.getBaseAngles(cell = 1), (np.shape(sort)[0], 1))
+            p = np.abs(ang - np.deg2rad(np.array(sort))[:, None])
+            si = np.argsort(np.min(p, axis = 0))
+            self.indexSortInterfaces(index = si)
+            string = "Favoring: Specified angles %s deg" % (", ".join([str(i) for i in sort]))
+        elif sort.lower() == "length":
             p = np.sum(self.getCellLengths(cell = 1), axis = 1)
             si = np.argsort(p)
             self.indexSortInterfaces(index = si)
@@ -611,10 +623,15 @@ class Interface():
                                     base_1 = base_1, base_2 = base_2)
         self.deleteInterfaces(keep = (r < 0), verbose = verbose)
         
-        #self.indexSortInterfaces(index = np.argsort(r[r < 0]))
-        #if verbose > 0:
-        #    string = "Sorted by Atom Strain ratio atom - A*abs(strain)**B with A,B: %.3e, %.3e" % (C, E)
-        #    ut.infoPrint(string)
+
+
+    def replicateExample(self):
+        """Function for sorting the dataset in the same manner as it was sorted for the paper"""
+
+        C, E = self.getAtomStrainMatches(matches = 5000)
+        self.removeByAtomStrain(keep = 5000)
+        r = self.getAtomStrainRatio(const = C, exp = E)
+        self.indexSortInterfaces(index = np.argsort(r))
 
 
 
@@ -863,8 +880,8 @@ class Interface():
             self.alt_base_2 = inputs.getInputs(from_input[1])[0]
             string = "Alternative bases set from inputs: %s, %s" % (from_input[0], from_input[1])
         elif from_file is not None:
-            base = file_io.readData(filename = from_file[0], format = format)[0]
-            base = file_io.readData(filename = from_file[1], format = format)[0]
+            self.alt_base_1 = file_io.readData(filename = from_file[0], format = format)[0]
+            self.alt_base_2 = file_io.readData(filename = from_file[1], format = format)[0]
             string = "Alternative bases set from files: %s, %s" % (from_file[0], from_file[1])
         elif full_base is not None:
             self.alt_base_1 = np.array(full_base[0])
@@ -1079,11 +1096,12 @@ class Interface():
         asr_endpoint = str("over" / "under") stop the iteration search to reach
         asr_limit over or under the specified limit if a match cant be found.
 
-        favor = str("length"/"angle_right"/"angle_same"), which interfaces to give 
-        preference to when removing atom/strain duplicates. Length minimizes the 
-        cell lengths, angle_right favors right angles. angle_same favors angles that
-        match the bottom base cell. Any other keyword builds the interfaces as initially 
-        constructed.
+        favor = str("length"/"angle_right"/"angle_same") or float or array(float,), 
+        which interfaces to give preference to when removing atom/strain duplicates. 
+        Length minimizes the cell lengths, angle_right favors right angles. 
+        Angle_same favors angles that match the bottom base cell. Default (or any other)
+        builds the interfaces as initially constructed. A float or an array of floats 
+        means the best matches to that angle or any of the angles in the case of an array.
         """
 
         if self.base_1 is None:
@@ -2066,10 +2084,11 @@ class Interface():
             plt.show()
 
 
-    def plotProperty(self, x, y, z = [], idx = None, col = 1, row = 1, N = 1, 
+    def plotProperty(self, x, y, z = [], idx = None, col = 1, row = 1, N = 1, ax = None,\
                      save = False, dpi = 100, format = "pdf", verbose = 1, handle = False,\
                      translation = None, title = None, other = None, ab = [],\
-                     m = "o", ms = 2, **kwargs):
+                     m = "o", ms = 2, leg = True, ylim = None, xlim = None, xscale = "linear",\
+                     yscale = "linear", **kwargs):
         """Function for plotting properties agains each other.
         plot x vs. y vs. z (optional) with z data values displayed in a colormap.
 
@@ -2094,10 +2113,22 @@ class Interface():
         N = int, If part of a subplot then this represents the number
         where it will appear
 
+        ax = matplotlib axes, axes to plot to, use with handle = True
+
         handle = bool, If true simply create the axis object at the
         specified (col, row, N) but do not display the figure
 
         verbose = int, Print extra information
+
+        leg = bool, include automatic legend
+
+        xlim = [lo, hi], X axis limits
+
+        ylim = [lo, hi], Y axis limits
+
+        xscale = "linear"/"log", scale of the x axis
+
+        yscale = "linear"/"log", scale of the y axis
         """
 
         if idx is None: idx = np.arange(self.atoms.shape[0])
@@ -2137,8 +2168,11 @@ class Interface():
             z_data = None
 
         hP = []
-        hFig = plt.figure()
-        hAx = plt.subplot(row, col, N)
+        if not handle:
+            hFig = plt.figure()
+            hAx = plt.subplot(row, col, N)
+        else:
+            hAx = ax
 
         ls = kwargs.pop("linestyle", "none")
         ms = kwargs.pop("markersize", ms)
@@ -2156,10 +2190,11 @@ class Interface():
 
                 [hP.append(lines) for lines in tP]
 
-            if len(x_leg) > len(y_leg):
-                hAx.legend(x_leg)
-            else:
-                hAx.legend(y_leg)
+            if leg:
+                if len(x_leg) > len(y_leg):
+                    hAx.legend(x_leg)
+                else:
+                    hAx.legend(y_leg)
 
         else:
             zmin = np.min([np.min(i) for i in z_data])
@@ -2200,17 +2235,26 @@ class Interface():
                     if np.shape(y_data[i])[0] > 1: k += 1
                     if np.shape(z_data[i])[0] > 1: l += 1
 
-            if len(x_leg) > len(y_leg):
-                hAx.legend(x_leg)
-            else:
-                hAx.legend(y_leg)
-            plt.colorbar(hP[0], label = z_lbl[0])
+            if leg:
+                if len(x_leg) > len(y_leg):
+                    hAx.legend(x_leg)
+                else:
+                    hAx.legend(y_leg)
+            
+            if not handle: plt.colorbar(hP[0], label = z_lbl[0])
 
+        if ylim is not None:
+            hAx.set_ylim(bottom = ylim[0], top = ylim[1])
+        if xlim is not None:
+            hAx.set_ylim(left = xlim[0], right = xlim[1])
+        hAx.set_yscale(yscale)
+        hAx.set_xscale(xscale)
         hAx.set_xlabel(x_lbl[0])
         hAx.set_ylabel(y_lbl[0])
         hAx.set_title(self.filename)
 
-        if handle: return
+        if handle: 
+            return
 
         """Annotating plot marker"""
         hP[0].set_pickradius(2)
@@ -2274,8 +2318,8 @@ class Interface():
                           save = False, dpi = 100, format = "pdf", row = 1,\
                           col = 1, N = 1, handle = False, cmap = "tab10",\
                           m = 'o', ls = 'None', delta = False, verbose = 1,\
-                          ms = 3, ab = [], shrink_idx = False, title = None,\
-                          **kwargs):
+                          ms = 3, ab = [], shrink_idx = False, true_idx = True,\
+                          title = None, **kwargs):
         """Function for plotting comparisons of interface properties
         
         var = list of keywords, see method get data ofr complete set
@@ -2322,6 +2366,8 @@ class Interface():
 
         shrink_idx = bool, Plot with index 0:range(len(idx)) not actual idx
 
+        true_idx = bool, Plot with actual index numbers or simply the count
+
         title = str, Titel for the plot
 
         **kwargs = any matplotlib plot kwargs
@@ -2342,7 +2388,7 @@ class Interface():
         data, lbl, ax, leg = self.getData(var = var, idx = idx, translation = translation,\
                                           ab = ab, other = other, verbose = verbose - 1)
 
-        if shrink_idx:
+        if shrink_idx or not true_idx:
             x = range(np.shape(idx)[0])
         else:
             x = idx
@@ -2372,18 +2418,23 @@ class Interface():
                       c = [0, 0, 0, 0.45], zorder = 1)
             hAxr.set_ylabel("$\Delta$")
 
-        
+        xl = "Index"
         if shrink_idx:
             if len(idx) > 20: plt.xticks(rotation = 90)
             hAx.set_xticks(range(np.shape(x)[0]))
             hAx.set_xticklabels([str(i) for i in idx])
+        elif not true_idx:
+            xl = ""
 
         hAx.set_ylabel(ax[0])
-        hAx.set_xlabel("Index")
+        hAx.set_xlabel(xl)
         if title is not None:
             hAx.set_title(title)
         else:
-            hAx.set_title("Comparison")
+            if self.filename is None:
+                hAx.set_title("Comparison")
+            else:
+                hAx.set_title(self.filename)
         ncol = 1
         if len(leg) > 3: ncol = 2
         hAx.legend(ncol = ncol)
@@ -2422,6 +2473,8 @@ class Interface():
         norm       = Sqrt(eps_11^2+eps_22^2+eps_12^2)
         trace      = |eps_11|+|eps_22|
         norm_trace = Sqrt(eps_11^2+eps_22^2)
+        max_diag   = max(eps_11, eps_22)
+        max_diag_a = max(|eps_11, eps_22|)
         x          = Cell bounding box, x direction (a_1 aligned to x)
         y          = Cell bounding box, y direction (a_1 aligned to x)
         min_bound  = Min(x,y)
@@ -2430,18 +2483,18 @@ class Interface():
         a_2        = Length of interface cell vector a_2
         area       = Area of the interface
         other      = Plot a custom array of values specified with keyword other. Length must match idx.
-        e_int_c       = Interfacial energy, for specified translation(s)
-        e_int_d       = Interfacial energy (DFT), for specified translation(s)
-        e_int_diff_c  = Difference in Interfacial energy between translations
-        e_int_diff_d  = Difference in Interfacial energy (DFT) between translations
-        w_sep_c       = Work of adhesion, for specified translation(s)
-        w_sep_d       = Work of adhesion (DFT), for specified translation(s)
-        w_seps_c      = Work of adhesion (strained ref), for specified translation(s)
-        w_seps_d      = Work of adhesion (strained ref) (DFT), for specified translation(s)
-        w_sep_diff_c  = Difference in w_sep_c between tranlsations
-        w_sep_diff_d  = Difference in w_sep_d (DFT) between tranlsations
-        w_seps_diff_c = Difference in w_seps_c between translations
-        w_seps_diff_d = Difference in w_seps_d (DFT) between translations
+        e_int_c        = Interfacial energy, for specified translation(s)
+        e_int_d        = Interfacial energy (DFT), for specified translation(s)
+        e_int_diff_c   = Difference in Interfacial energy between translations
+        e_int_diff_d   = Difference in Interfacial energy (DFT) between translations
+        w_sep_c        = Work of adhesion, for specified translation(s)
+        w_sep_d        = Work of adhesion (DFT), for specified translation(s)
+        w_seps_c       = Work of adhesion (strained ref), for specified translation(s)
+        w_seps_d       = Work of adhesion (strained ref) (DFT), for specified translation(s)
+        w_sep_diff_c   = Difference in w_sep_c between tranlsations
+        w_sep_diff_d   = Difference in w_sep_d (DFT) between tranlsations
+        w_seps_diff_c  = Difference in w_seps_c between translations
+        w_seps_diff_d  = Difference in w_seps_d (DFT) between translations
         ------------------------
 
         other = array(size_idx), If keyword "other" is specified in x, y or z then supply the
@@ -2608,6 +2661,32 @@ class Interface():
                     leg.append("$|\epsilon_{11}|+|\epsilon_{22}|$")
                 else:
                     leg.append("$|\epsilon_{11}|+|\epsilon_{22}|^{\dagger}$")
+
+            elif item.lower() == "max_diag":
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)[0::2, :]
+                max = np.max(eps_stack, axis = 0)
+                min = np.min(eps_stack, axis = 0)
+                """Check if abs(min) is bigger than max, (to preserve sign)"""
+                max[np.abs(min) > np.abs(max)] = min[np.abs(min) > np.abs(max)]
+                data.append(max)
+                lbl_short.append("Max$(\epsilon_{11},\epsilon_{22})$")
+                lbl_long.append("Max$(\epsilon_{11},\epsilon_{22})$")
+                if b1 is None:
+                    leg.append("Max$(\epsilon_{11},\epsilon_{22})$")
+                else:
+                    leg.append("Max$(\epsilon_{11},\epsilon_{22})^{\dagger}$")
+
+            elif item.lower() == "max_diag_a":
+                eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = b1, base_2 = b2)[0::2, :]
+                data.append(np.max(np.abs(eps_stack), axis = 0))
+                lbl_short.append("Max$(|\epsilon_{11},\epsilon_{22}|)$")
+                lbl_long.append("Max$(|\epsilon_{11},\epsilon_{22}|)$")
+                if b1 is None:
+                    leg.append("Max$(|\epsilon_{11},\epsilon_{22}|)$")
+                else:
+                    leg.append("Max$(|\epsilon_{11},\epsilon_{22}|)^{\dagger}$")
 
             elif item.lower() == "rotation":
                 data.append(self.ang[idx])
@@ -3280,7 +3359,7 @@ class Interface():
 
         vacuum = float, Vacuum added above the interface
 
-        surface = str("0001"/"10-10"/"B100"/"B110"), Type of bottom
+        surface = str("0001"/"10-10"/"B100"/"B110"/"F100"/"F110"), Type of bottom
         surface for use when specifying translations
 
         translation = int or [float, 3], Int corresponding to pre-existing
@@ -3490,7 +3569,10 @@ class Interface():
             if translation is None:
                 filename = "interface_%s.%s" % (idx, format)
             else:
-                filename = "interface_%s_T%s.%s" % (idx, translation, format)
+                if isinstance(translation, (list, np.ndarray)):
+                    filename = "interface_%s_T%s_%s.%s" % (idx, translation[0], translation[1], format)
+                else:
+                    filename = "interface_%s_T%s.%s" % (idx, translation, format)
 
         """Build the selected interface"""
         base, pos, type_n, mass = self.buildInterface(idx = idx, z_1 = z_1, z_2 = z_2, d = d,\

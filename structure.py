@@ -277,25 +277,53 @@ class Structure():
         return self.cell[np.identity(3, dtype = bool)]
 
 
-    def getAtoms(self, mode):
+    def getAtoms(self, mode = "layer_z", opt = [0, 0.2], coordinates = "c"):
         """get index of atoms that match supplied criteria
 
         Mode is supplied as a dict with keyword specified as below
         and containing a list of 
 
-        i.e. {"box": [x_lo, x_hi, y_lo, y_hi, z_lo, z_hi], "type": [2, 3]}
-        Slice out box within coordinates x,y,z and additionally of type 2 or 3
-
         Mode and options
         ----------------
-        box    - [x_lo, x_hi, y_lo, y_hi, z_lo, z_hi]
-        sphere - [x, y, z, radius]
-        type   - [list of all types to include]
-        idx    - [list of all atomic indices to include]
+        box     - [x_lo, x_hi, y_lo, y_hi, z_lo, z_hi]
+        sphere  - [x, y, z, radius]
+        type    - [list of all types to include]
+        idx     - [list of all atomic indices to include]
+        layer_x - [x_center, dx], slice out atoms within x_center +- dx
+        layer_y - [y_center, dy], slice out atoms within y_center +- dy
+        layer_z - [z_center, dz], slice out atoms within z_center +- dz
         """
-
-        print("Not defined")
         
+        if "c".startswith(coordinates.lower()):
+            self.dir2car()
+            string = "Changed to cartesian coordinates"
+            ut.infoPrint(string)
+        elif "d".startswith(coordinates.lower()):
+            self.car2dir()
+            string = "Changed to direct coordinates"
+            ut.infoPrint(string)
+        else:
+            string = "Unrecognized option coordinates = %s, (can be c or d)" % coordinates
+            ut.infoPrint(string)
+            return
+
+        if mode.lower() == "layer_x":
+            mask = (self.pos[:, 0] >= (opt[0] - opt[1])) *\
+                   (self.pos[:, 0] <= (opt[0] + opt[1]))
+            index = np.arange(self.pos.shape[0])[mask]
+        elif mode.lower() == "layer_y":
+            mask = (self.pos[:, 1] >= (opt[0] - opt[1])) *\
+                   (self.pos[:, 1] <= (opt[0] + opt[1]))
+            index = np.arange(self.pos.shape[0])[mask]
+        elif mode.lower() == "layer_z":
+            mask = (self.pos[:, 2] >= (opt[0] - opt[1])) *\
+                   (self.pos[:, 2] <= (opt[0] + opt[1]))
+            index = np.arange(self.pos.shape[0])[mask]
+
+        return index
+        
+
+
 
     def getNeighborDistance(self, idx = None, r = 6, idx_to = None,\
                             extend = np.array([1, 1, 1], dtype = bool),\
@@ -1181,12 +1209,17 @@ class Structure():
         self.pos_type = "c"
 
 
-    def writeStructure(self, filename = None, format = "lammps", verbose = 1):
+    def writeStructure(self, filename = None, format = "lammps",\
+                       direct = False, sd = False, verbose = 1):
         """Function for writing the structure to specified file format
 
         filename = str(), Filename to write to
 
         format = str("lammps"/"vasp"/"eon"/"xyz"), Format to write to
+
+        direct = bool, Write in direct coordinates (VASP)
+
+        sd = bool, consider selective dynamics (VASP)
 
         verbose = int, Print extra information
         """
@@ -1198,7 +1231,8 @@ class Structure():
                 filename = self.filename
 
         """Write the structure object to specified file"""
-        file_io.writeData(filename = filename, atoms = self, format = format, verbose = verbose - 1)
+        file_io.writeData(filename = filename, atoms = self, format = format,\
+                          sd = sd, direct = direct, verbose = verbose - 1)
         
         if verbose > 0:
             string = "Structure written to file: %s (%s-format)" % (filename, format)
