@@ -22,8 +22,9 @@ def getInputs(lattice):
 
     """
 
-    if lattice == "W100_L":
+    elif lattice == "W100_L":
         """BCC W Lattice with 100 surface relaxed using LAMMPS"""
+        """Updated 2020-05-13"""
         cell = np.array([[3.164917,        0, 0       ],\
                          [       0, 3.164917, 0       ],\
                          [       0,        0, 3.164917]])
@@ -39,7 +40,7 @@ def getInputs(lattice):
 
     elif lattice == "W100_V":
         """BCC W Lattice with 100 surface relaxed using VASP"""
-        """ENCUT=520, KPTS=21x21x21"""
+        """Updated 2020-08-25, ENCUT=520, KPTS=21x21x21"""
         cell = np.array([[3.171856,        0, 0      ],\
                          [       0, 3.171856, 0      ],\
                          [       0,        0, 3.171856]])
@@ -55,6 +56,7 @@ def getInputs(lattice):
         
     elif lattice == "W110_L":
         """BCC W Lattice with 110 surface relaxed using LAMMPS"""
+        """Updated 2020-06-18"""
         cell = np.array([[3.164917, 1.582459, 0       ],\
                          [       0, 2.237935, 0       ],\
                          [       0,        0, 4.475869]])
