@@ -187,7 +187,72 @@ def readEON(filename, verbose = 1):
 
     return mat, pos, t, idx, mass
 
+
+def writeEON(filename, atoms, sd = False, verbose = 1):
+    """Write EON pos.con file
+
+    sd = bool, use atoms.frozen parameter to freeze atoms 
+    which have any of the 3 dimentions specified as frozen
+    """
+
+    if verbose > 0:
+        string = "Writing file: %s, format: EON" % filename
+        ut.infoPrint(string)
+
+    """Change to cartesian coordinates"""
+    atoms.dir2car()
+    
+    """Get cell lengths from the lattice vectors"""
+    a = np.linalg.norm(atoms.cell[:, 0])
+    b = np.linalg.norm(atoms.cell[:, 1])
+    c = np.linalg.norm(atoms.cell[:, 2])
+
+    """Get the cell angles (in degrees) from the lattice vectors"""
+    alpha = np.rad2deg(np.arccos(np.dot(atoms.cell[:, 1], atoms.cell[:, 2]) / (b * c)))
+    beta  = np.rad2deg(np.arccos(np.dot(atoms.cell[:, 0], atoms.cell[:, 2]) / (a * c)))
+    gamma = np.rad2deg(np.arccos(np.dot(atoms.cell[:, 0], atoms.cell[:, 1]) / (a * b)))
+
+    """Get atom types"""
+    mass = []
+    types = []
+    number = []
+    for i in np.unique(atoms.type_n):
+        types.append(i.decode("utf-8"))
+        number.append(np.sum(atoms.type_n == i))
+        mass.append(atoms.mass[atoms.type_n == i][0])
+
+    if sd:
+        """If any dimension is frozen then the atom will be frozen"""
+        frozen = np.any(atoms.frozen, axis = 1)
+    else:
+        frozen = np.zeros(atoms.pos.shape[0])
+
+    with open(filename, "w") as f:
+
+        f.write("EON pos file (%s) written from file_io.py\n" % filename)
+        f.write("0.0000 TIME\n")
+        
+        f.write("%12.6f %12.6f %12.6f\n" % (a, b, c))
+        f.write("%12.6f %12.6f %12.6f\n" % (gamma, beta, alpha))
+
+        f.write("0 0\n")
+        f.write("0 0 0\n")
+
+        f.write("%i\n" % len(types))
+        f.write("%s\n" % (" ".join([str(i) for i in number])))
+        f.write("%s\n" % (" ".join([str(i) for i in mass])))
+        
+        n = 0
+        for i, element in enumerate(types):
+            f.write("%s\n" % element)
+            f.write("Coordinates of Component %i\n" % (i + 1))
             
+            for ii in range(number[i]):
+                f.write("%12.6f %12.6f %12.6f %4i %6i\n" %\
+                        (atoms.pos[n, 0], atoms.pos[n, 1], atoms.pos[n, 2],\
+                         frozen[n], n))
+                n += 1
+
 
 def readLAMMPS(filename, verbose = 1):
     """Load LAMMPS geometry file"""
@@ -393,7 +458,12 @@ def readVASP(filename, verbose = 1):
 
 
 def writeVASP(filename, atoms, direct = False, sd = False, verbose = 1):
-    """Write VASP POSCAR file"""
+    """Write VASP POSCAR file
+
+    sd = bool, write selective dynamics from the atoms.frozen parameter
+
+    direct = bool, Write positions in direct coordinates
+    """
 
     if verbose > 0:
         string = "Writing file: %s, format: VASP" % filename
@@ -486,42 +556,6 @@ def writeXYZ(filename, atoms, verbose = 1):
 
 
 
-def readOUTCAR(filename, state = "all", verbose = 1, **kwargs):
-    """Function for reading and striping information from a VASP OUTCAR file
-
-       filename = str, Name of the OUTCAR file to be read, default = OUTCAR
-
-       state = str(all/first/last), Read all steps, first step or last step, default = all
-
-       kwargs = {<name>: bool}, parameters to read, default = all True. Output as None if False
-       ------
-       info  = read misc info
-       force = read force
-       ewe   = read energy without entropy
-       esz   = read energy sigma --> 0
-       pos   = read positions
-       cell  = read cell
-       dt    = time steps
-       time  = LOOP+ times
-       ------
-
-    """
-
-    print("Not Done!!!")
-
-    """Dict to hold various options"""
-    out = {'info': None, 'force': None, 'ewe': None, 'esz': None, 'pos': None,\
-           'cell': None, 'time': None, 'dt': None}
-
-    """Open file and read it line by line"""
-    #with open(filename, 'r') as f:
-    #    for line in f:
-            
-            
-
-
-
-
 def readData(filename, format = "eon", verbose = 1):
     """Entry point for loading geometry files"""
 
@@ -550,7 +584,7 @@ def writeData(filename, atoms, format = "eon", sd = False, direct = False, verbo
     """Entry point for loading geometry files"""
 
     if "eon".startswith(format.lower()):
-        writeEON(filename, atoms, verbose = verbose)
+        writeEON(filename, atoms, sd = sd, verbose = verbose)
 
     elif "lammps".startswith(format.lower()):
         writeLAMMPS(filename, atoms, verbose = verbose)

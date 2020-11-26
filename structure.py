@@ -1219,7 +1219,7 @@ class Structure():
 
         direct = bool, Write in direct coordinates (VASP)
 
-        sd = bool, consider selective dynamics (VASP)
+        sd = bool, consider selective dynamics (VASP) and frozen atoms EON
 
         verbose = int, Print extra information
         """
