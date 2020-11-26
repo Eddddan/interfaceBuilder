@@ -22,7 +22,7 @@ def getInputs(lattice):
 
     """
 
-    elif lattice == "W100_L":
+    if lattice == "W100_L":
         """BCC W Lattice with 100 surface relaxed using LAMMPS"""
         """Updated 2020-05-13"""
         cell = np.array([[3.164917,        0, 0       ],\
