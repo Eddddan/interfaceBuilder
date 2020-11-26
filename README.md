@@ -89,8 +89,8 @@ i.plotCombinations()
 ```
 Plots mean absolute strain against nr of atoms in the interface or all interfaces
 ```
-C, E = i.getAtomStrainRatio(match = 2500)
-i50 = i.getAtomStrainIdx(match = 50)
+C, E = i.getAtomStrainMatches(matches = 2500)
+i50 = i.getAtomStrainIdx(matches = 50)
 i.plotCombinations(const = C, exp = E, mark = i50)
 ```
 Plots the same combination plot as before but with all interfaces above/below
@@ -107,7 +107,7 @@ i.plotInterface(idx = 5, align_base = "no")
 Plots the cell vectors of interface with index 5, both top surface and bottom surfaces displayed just as 
 it was found when matched. 
 ```
-i.summerize(idx = 5)
+i.summarize(idx = 5)
 ```
 Plots a summery in 4 plots of the specified interface.
 ```
