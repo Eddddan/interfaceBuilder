@@ -681,12 +681,12 @@ class Structure():
             hFig = plt.figure()
 
         """Set some defaults"""
-        ls = kwargs.pop("linestyle", "--")
-        lw = kwargs.pop("linewidth", 0.5)
-        m = kwargs.pop("marker", "o")
-        ms = kwargs.pop("markersize", 3)
-        cs = kwargs.pop("capsize", 2)
-        elw = kwargs.pop("elinewidth", 1)
+        #ls = kwargs.pop("linestyle", "--")
+        #lw = kwargs.pop("linewidth", 0.5)
+        #m = kwargs.pop("marker", "o")
+        #ms = kwargs.pop("markersize", 3)
+        #cs = kwargs.pop("capsize", 2)
+        #elw = kwargs.pop("elinewidth", 1)
 
         hAx = plt.subplot(row, col, N)
         label = "_ignore"
@@ -730,7 +730,7 @@ class Structure():
 
     def plotNN(self, idx, idx_to = None, NN = 8, verbose = True,\
                handle = False, row = 1, col = 1, N = 1, save = False,\
-               format = "pdf", dpi = 100, **kwargs):
+               format = "pdf", dpi = 100, legend = None, **kwargs):
         """Function to plot the distances to the N nearest neighbors
 
         idx = int, [int,], Index from which to calculate nearest neighbors
@@ -763,28 +763,25 @@ class Structure():
         if idx_to is None: idx_to = np.arange(self.pos.shape[0])
         
         distance = self.getNearestNeighbors(idx = idx, idx_to = idx_to,\
-                                            NN = NN, verbose = verbose)[1]
+                                            NN = NN, verbose = verbose)
 
         x = np.arange(1, distance.shape[1] + 1)
         
         if not handle:
             hFig = plt.figure()
-
-        """Set some defaults"""
-        ls = kwargs.pop("linestyle", "--")
-        lw = kwargs.pop("linewidth", 0.5)
-        m = kwargs.pop("marker", "o")
-        ms = kwargs.pop("markersize", 3)
-
+        #m = kwargs.pop("marker")
         hAx = plt.subplot(row, col, N)
         for i in range(np.shape(distance)[0]):
-            hAx.plot(x, distance[i, :], linestyle = ls, marker = m, markersize = ms,\
-                     linewidth = lw, **kwarg)
+            hAx.plot(x, distance[i, :], **kwargs)
         
 
         hAx.set_title("Nearest Neighbor Distances")
         hAx.set_xlabel("Neighbor")
         hAx.set_ylabel("Distance, $(\AA)$")
+        #hAx.set_xticks(np.arange(1, 7))
+        #hAx.set_xticklabels(["W$_1$", "W$_2$", "W$_3$", "W$_4$", "W$_5$", "W$_6$"])
+        if legend is not None:
+            hAx.legend(legend, ncol = 2, frameon = False)
         
         plt.tight_layout()
         if save:

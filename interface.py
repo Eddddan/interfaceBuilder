@@ -205,7 +205,7 @@ class Interface():
         self.order = self.order[index]
 
 
-    def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1, sort = "default"):
+    def getAtomStrainDuplicates(self, tol_mag = 7, verbose = 1, sort = "angle_same"):
         """Get the index of interfaces with strains within specified tolerences
 
         tol_mag = int, Magnitude at which to consider stains identical
@@ -678,15 +678,15 @@ class Interface():
 
     def buildEint(self, version = "classical", verbose = 1):
         """Function for constructing the interfacial energies from work of separation
-        data together with surface energies from W = sigma_1 + sigma_2 - gamma
+        data together with surface energies from W = sigma_12 + sigma_21 - gamma
 
         version = str("classical"/"dft"), Build from classical data or DFT data
         any match up to the compleat word workes
 
         verbose = int, Print extra information
         """
-        keys_c = ["sigma_c_11", "sigma_c_12", "sigma_c_21", "sigma_c_22"]
-        keys_c = ["sigma_d_11", "sigma_d_12", "sigma_d_21", "sigma_d_22"]
+        keys_c = ["sigma_c_12", "sigma_c_21"]
+        keys_c = ["sigma_d_12", "sigma_d_21"]
 
         if "classical".startswith(version.lower()):
             if np.sum([self.parameters[k] == 0 for k in keys_c]) > 0:
@@ -696,12 +696,12 @@ class Interface():
             else:
                 """Calculate the interfacial energies"""
                 sigma = np.sum([self.parameters[k] for k in keys_c])
-                self.e_int_c = sigma - self.w_sep_c
-                """Set to zero in all places where w_sep is not set"""
-                self.e_int_c[self.w_sep_c == 0] = 0
+                self.e_int_c = sigma - self.w_seps_c
+                """Set to zero in all places where w_seps is not set"""
+                self.e_int_c[self.w_seps_c == 0] = 0
                 
                 if verbose > 0:
-                    string = "e_int_c set from w_sep_c data of shape (%i,%i)" % (self.w_sep_c.shape)
+                    string = "e_int_c set from w_seps_c data of shape (%i,%i)" % (self.w_seps_c.shape)
                     ut.infoPrint(string)
 
         if "dft".startswith(version.lower()):
@@ -712,14 +712,42 @@ class Interface():
             else:
                 """Calculate the interfacial energies"""
                 sigma = np.sum([self.parameters[k] for k in keys_c])
-                self.e_int_d = sigma - self.w_sep_d
-                """Set to zero in all places where w_sep is not set"""
-                self.e_int_d[self.w_sep_d == 0] = 0
+                self.e_int_d = sigma - self.w_seps_d
+                """Set to zero in all places where w_seps is not set"""
+                self.e_int_d[self.w_seps_d == 0] = 0
 
                 if verbose > 0:
-                    string = "e_int_d set from w_sep_d data of shape (%i,%i)" (self.w_sep_d.shape)
+                    string = "e_int_d set from w_seps_d data of shape (%i,%i)" % (self.w_seps_d.shape)
                     ut.infoPrint(string)
         
+
+    def clearArrayProperty(self, prop, verbose = 1):
+        """Function for clearing (set to 0) values stored in w_sep/w_seps/e_int
+
+        prop = str("w_sep_c"/"w_seps_c"/"w_sep_d"/"w_seps_d"/
+                   "e_int_c"/e_int_d), Property to clear
+                   
+        verbose = int, Print extra information
+        """
+
+        s = self.atoms.shape[0]
+        if prop.lower() == "w_sep_c":
+            self.w_sep_c = np.zeros((s, 1))
+        elif prop.lower() == "w_seps_c":
+            self.w_seps_c = np.zeros((s, 1))
+        elif prop.lower() == "e_int_c":
+            self.e_int_c = np.zeros((s, 1))
+        elif prop.lower() == "w_sep_d":
+            self.w_sep_d = np.zeros((s, 1))
+        elif prop.lower() == "w_seps_d":
+            self.w_seps_d = np.zeros((s, 1))
+        elif prop.lower() == "e_int_d":
+            self.e_int_d = np.zeros((s, 1))
+
+        if verbose > 0:
+            string = "Property: %s, reset (set to 0) and reshaped to (%i,1)" % (prop, s)
+            ut.infoPrint(string)
+
     
     def setArrayProperty(self, prop, idx = None, t = None, value = None,\
                          filename = None, verbose = 1):
@@ -901,6 +929,66 @@ class Interface():
         return self.alt_base_1, self.alt_base_2
 
 
+    def findRep(self, rep, cell = 1):
+        """Search and return the bool array where the repetitions of the
+        base cell vectors match the supplied rep.
+
+        rep = array(2,2), Array of repetitions to search for
+
+        cell = 1/2, Search repetitions of cell vectprs for surface 1 or 2
+        """
+
+        if type(rep) == list: rep = np.array(rep)
+        print(rep)
+        if cell == 1:
+            match = np.all(np.all(self.rep_1 == rep, axis = 2), axis = 1)
+        elif cell == 2:
+            match = np.all(np.all(self.rep_2 == rep, axis = 2), axis = 1)        
+
+        return match
+
+
+    def findFullRep(self, rep_1, rep_2):
+        """Find the boolean array with the interface that consists of rep_1 and rep_2 repetitions
+        for the bottom and top base cells
+
+        rep_1 = array(2,2), array of repetitions to search (bottom surface)
+        
+        rep_1 = array(2,2), array of repetitions to search (bottom surface)
+        """
+
+        match_1 = self.findRep(rep_1, cell = 1)
+        match_2 = self.findRep(rep_2, cell = 2)
+
+        return match_1 * match_2
+
+
+    def findRepIdx(self, rep, cell = 1):
+        """Search and return the index array where the repetitions of the
+        base cell vectors match the supplied rep.
+
+        rep = array(2,2), Array of repetitions to search for
+
+        cell = 1/2, Search repetitions of cell vectprs for surface 1 or 2
+        """
+
+        match = self.findRep(rep = rep, cell = cell)
+        return np.arange(self.atoms.shape[0])[match]
+
+
+    def findFullRepIdx(self, rep_1, rep_2):
+        """Find the boolean array with the interface that consists of rep_1 and rep_2 repetitions
+        for the bottom and top base cells
+
+        rep_1 = array(2,2), array of repetitions to search (bottom surface)
+        
+        rep_1 = array(2,2), array of repetitions to search (bottom surface)
+        """
+
+        match = self.findFullRep(rep_1 = rep_1, rep_2 = rep_2)
+        return np.arange(self.atoms.shape[0])[match]
+
+
     def getAreas(self, idx = None, cell = 1, base_1 = None, base_2 = None):
         """Function for getting the area of multiple interfaces
 
@@ -1013,6 +1101,124 @@ class Interface():
         return ang
 
 
+    def getCellCount(self, idx = None, cell = 1, verbose = 0):
+        """Function for getting the number of base cells that make up
+        an interface surface
+
+        idx = array(int,) or [int,], Index of the interfaces
+
+        cell = 1 or 2, Surface 1 (bottom) or 2 (top)
+
+        verbose = int, Print extra information
+        """
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = [idx]
+
+        areas = self.getAreas(idx = idx, cell = cell)
+        if cell == 1:
+            base_area = np.abs(np.linalg.det(self.base_1[:2, :2]))
+        elif cell == 2:
+            base_area = np.abs(np.linalg.det(self.base_2[:2, :2]))
+
+        count = areas / base_area
+
+        if verbose > 0:
+            string = "Cell count for cell %i, with %i index, max deviation: %.4E"\
+                     % (cell, len(count), np.max(count - np.round(count, 0)))
+            ut.infoPrint(string)
+
+        return count
+
+
+    def getCellCountRatio(self, idx = None, verbose = 1):
+        """Function for getting the ratio of base cells between the top and
+        bottom surface (top/bottom)
+
+        idx = array(int,) or [int,], Index of the interfaces
+
+        verbose = int, Print extra information
+        """
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = [idx]
+
+        count_1 = self.getCellCount(idx = idx, cell = 1, verbose = verbose - 1)
+        count_2 = self.getCellCount(idx = idx, cell = 2, verbose = verbose - 1)
+
+        return count_2 / count_1
+
+
+    def getTransRank(self, prop, idx = None):
+        """Function or getting the ranking of the different translations for the 
+        specified property
+
+        prop = str("w_sep_c"/"w_sep_d"/"w_seps_c"/"w_seps_d"/"e_int_c"/"e_int_d"),
+               Property to rank from lowest (most stable) to highest (least stable)
+
+        idx = array(int,), index of the interfaces to consider
+        """
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = [idx]
+
+        if prop.lower() == "w_sep_c":
+            rank = np.argsort(self.w_sep_c[idx, :], axis = 1)
+        elif prop.lower() == "w_sep_d":
+            rank = np.argsort(self.w_sep_d[idx, :], axis = 1)
+        elif prop.lower() == "w_seps_c":
+            rank = np.argsort(self.w_seps_c[idx, :], axis = 1)
+        elif prop.lower() == "w_seps_d":
+            rank = np.argsort(self.w_seps_d[idx, :], axis = 1)
+        elif prop.lower() == "e_int_c":
+            rank = np.argsort(self.e_int_c[idx, :], axis = 1)
+        elif prop.lower() == "e_int_d":
+            rank = np.argsort(self.e_int_d[idx, :], axis = 1)
+
+        return rank
+
+
+    def getStrainContribution(self, idx = None, version = "classic", translation = None):
+        """Function for getting the difference between w_sep and w_seps
+        i.e. the impact of straining, if data exists
+
+        idx = array(int,) or [int,], Index of the interfaces
+
+        version = "classic"/"dft", compare w_sep(s)_c or w_sep(s)_d
+
+        translation = list, Translation(s) to include
+
+        verbose = int, Print extra information
+        """
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = [idx]
+        if translation is None: translation = [0]
+        if isinstance(translation, (int, np.integer)): translation = [translation]
+
+        if "classic".startswith(version.lower()):
+            w_sep = self.w_sep_c[idx, :][:, translation]
+            w_seps = self.w_seps_c[idx, :][:, translation]
+
+        elif "dft".startswith(version.lower()):
+            w_sep = self.w_sep_d[idx, :][:, translation]
+            w_seps = self.w_seps_d[idx, :][:, translation]
+            
+            base_1, base_2 = self.getAB()
+            base_1 = base_1[:2, :2]
+            base_2 = base_2[:2, :2]
+
+        else:
+            string = "Unrecognized version: %s" % version
+            ut.infoPrint(string)
+            return np.zeros((np.shape(translation)[0], np.shape(idx)[0]))
+        
+        """Calculate the difference between unstrained and strained work of adhesion"""
+        delta_w = (w_seps - w_sep).T
+
+        return delta_w
+
+
     def getCell(self, idx = None, cell = 1, base_1 = None, base_2 = None):
         """Function for getting the cell vectors. Allows to specify alternative bases
         which is not accessable if the cell vectors are just taken from the properties
@@ -1047,7 +1253,7 @@ class Interface():
                    limit = None, exp = 1, verbose = 1, min_angle = 10,\
                    remove_asd = True, asd_tol = 7, limit_asr = False,\
                    asr_tol = 1e-7, asr_iter = 350, asr_strain = "eps_mas",\
-                   asr_endpoint = "over", target = None, favor = "length"):
+                   asr_endpoint = "over", target = None, favor = "angle_same"):
         """Main function for finding cell matches. Searches all permutations of 
         n_max, m_max of the top cell at each rotation theta/dTheta and finds the 
         best matches based on strain.
@@ -1953,7 +2159,7 @@ class Interface():
             x_label = "$|\epsilon_{12}|$, (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
-            x_label = "$(\epsilon_{11}+\epsilon_{22}+\epsilon_{12})/3$, (%)"
+            x_label = "$(|\epsilon_{11}|+|\epsilon_{22}|+|\epsilon_{12}|)/3$, (%)"
             strain = self.eps_mas[idx]
 
         if verbose > 0:
@@ -2166,7 +2372,7 @@ class Interface():
             if len(x_data) != len(y_data) != len(z_data) or z_data == []: return
         else:
             z_data = None
-
+        print()
         hP = []
         if not handle:
             hFig = plt.figure()
@@ -2191,10 +2397,13 @@ class Interface():
                 [hP.append(lines) for lines in tP]
 
             if leg:
+                ncol = 1
                 if len(x_leg) > len(y_leg):
-                    hAx.legend(x_leg)
+                    if len(x_leg) > 4: ncol = 2
+                    hAx.legend(x_leg, ncol = ncol)
                 else:
-                    hAx.legend(y_leg)
+                    if len(y_leg) > 4: ncol = 2
+                    hAx.legend(y_leg, ncol = ncol)
 
         else:
             zmin = np.min([np.min(i) for i in z_data])
@@ -2236,17 +2445,21 @@ class Interface():
                     if np.shape(z_data[i])[0] > 1: l += 1
 
             if leg:
+                ncol = 1
                 if len(x_leg) > len(y_leg):
-                    hAx.legend(x_leg)
+                    if len(x_leg) > 4: ncol = 2
+                    hAx.legend(x_leg, ncol = ncol)
                 else:
-                    hAx.legend(y_leg)
+                    if len(y_leg) > 4: ncol = 2
+                    hAx.legend(y_leg, ncol = ncol)
             
             if not handle: plt.colorbar(hP[0], label = z_lbl[0])
 
         if ylim is not None:
             hAx.set_ylim(bottom = ylim[0], top = ylim[1])
         if xlim is not None:
-            hAx.set_ylim(left = xlim[0], right = xlim[1])
+            hAx.set_xlim(left = xlim[0], right = xlim[1])
+
         hAx.set_yscale(yscale)
         hAx.set_xscale(xscale)
         hAx.set_xlabel(x_lbl[0])
@@ -2424,7 +2637,9 @@ class Interface():
             hAx.set_xticks(range(np.shape(x)[0]))
             hAx.set_xticklabels([str(i) for i in idx])
         elif not true_idx:
-            xl = ""
+            xl = "Interface"
+            hAx.set_xticks([])
+            hAx.set_xticklabels([])
 
         hAx.set_ylabel(ax[0])
         hAx.set_xlabel(xl)
@@ -2475,6 +2690,8 @@ class Interface():
         norm_trace = Sqrt(eps_11^2+eps_22^2)
         max_diag   = max(eps_11, eps_22)
         max_diag_a = max(|eps_11, eps_22|)
+        cell_diff  = Base cells top - Base cells bottom
+        cell_ratio = Ratio of nr of base cells top / bottom
         x          = Cell bounding box, x direction (a_1 aligned to x)
         y          = Cell bounding box, y direction (a_1 aligned to x)
         min_bound  = Min(x,y)
@@ -2483,6 +2700,8 @@ class Interface():
         a_2        = Length of interface cell vector a_2
         area       = Area of the interface
         other      = Plot a custom array of values specified with keyword other. Length must match idx.
+        strain_c   = Difference between w_seps_c and w_sep_c
+        strain_d   = Difference between w_seps_c and w_sep_c
         e_int_c        = Interfacial energy, for specified translation(s)
         e_int_d        = Interfacial energy (DFT), for specified translation(s)
         e_int_diff_c   = Difference in Interfacial energy between translations
@@ -2694,6 +2913,19 @@ class Interface():
                 lbl_long.append("Initial Rotation, (Deg)")
                 leg.append("Rot")
 
+            elif item.lower() == "cell_diff":
+                data.append(self.getCellCount(idx = idx, cell = 2) - 
+                            self.getCellCount(idx = idx, cell = 1))
+                lbl_short.append("$N_{T}-N_{B}$, (Nr)")
+                lbl_long.append("Nr of Cells Top - Bottom, (Nr)")
+                leg.append("$N_{T}-N_{B}$")
+
+            elif item.lower() == "cell_ratio":
+                data.append(self.getCellCountRatio(idx = idx))
+                lbl_short.append("$N_{T}/N_{B}$")
+                lbl_long.append("Nr of Cells Top/Bottom")
+                leg.append("$N_{T}/N_{B}$")
+
             elif item.lower() == "x":
                 data.append(self.getBounds(idx = idx, cell = 1, base_1 = b1)[0, :])
                 lbl_short.append("L $x^{C}$, ($\AA$)")
@@ -2756,6 +2988,33 @@ class Interface():
                     leg.append("Area")
                 else:
                     leg.append("Area$^{\dagger}$")
+
+            elif item.lower() == "strain_c":
+                if not compact:
+                    for t in translation:
+                        data.append(self.getStrainContribution(idx = idx, version = "c", translation = t)[0, :])
+                        lbl_short.append("W (W$_{S}^{C}$-W$_{US}^{C}$), ($eV/\AA^2$)")
+                        lbl_long.append("W, Strained-Unstrained, ($eV/\AA^2$)")
+                        leg.append("$\Delta W_{S-US,%i}$" % t)
+                else:
+                    data.append(self.getStrainContribution(idx = idx, version = "c", translation = translation))
+                    lbl_short.append("W (W$_{S}^{C}$-W$_{US}^{C}$), ($eV/\AA^2$)")
+                    lbl_long.append("W, Strained-Unstrained, ($eV/\AA^2$)")
+                    [leg.append("$\Delta W_{S-US,%i}^{C}$" % t) for t in translation]
+
+            elif item.lower() == "strain_d":
+                if not compact:
+                    for t in translation:
+                        data.append(self.getStrainContribution(idx = idx, version = "d", translation = t)[0, :])
+                        lbl_short.append("W (W$_{S}^{D}$-W$_{US}^{D}$), ($eV/\AA^2$)")
+                        lbl_long.append("W, Strained-Unstrained, ($eV/\AA^2$)")
+                        leg.append("$\Delta W_{S-US,%i}^{D}$" % t)
+                else:
+                    data.append(self.getStrainContribution(idx = idx, version = "d", translation = translation))
+                    lbl_short.append("W (W$_{S}^{D}$-W$_{US}^{D}$), ($eV/\AA^2$)")
+                    lbl_long.append("W, Strained-Unstrained, ($eV/\AA^2$)")
+                    [leg.append("$\Delta W_{S-US,%i}^{D}$" % t) for t in translation]
+
 
             elif item.lower() == "density":
                 area = self.getAreas(idx = idx, cell = 1, base_1 = b1)

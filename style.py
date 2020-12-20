@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 
 """Set some plotting defaults"""
-plotParams = {"font.size": 10,\
+plotParams = {"font.size": 14,\
               "font.family": "serif",\
               "axes.titlesize": "medium",\
               "axes.labelsize": "small",\
@@ -19,7 +19,6 @@ plotParams = {"font.size": 10,\
               "lines.linewidth": 1,\
               "lines.marker": "None",\
               "lines.markersize": 2,\
-              "lines.markerfacecolor": "None",\
               "lines.markeredgewidth": 1,\
               "legend.edgecolor": "0",\
               "legend.framealpha": 1,\

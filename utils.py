@@ -314,12 +314,16 @@ def getPlotProperties():
         "norm_trace    = Sqrt(eps_11^2+eps_22^2)\n"\
         "max_diag      = max(eps_11, eps_22)\n"\
         "max_diag_a    = max(|eps_11, eps_22|)\n"\
+        "cell_diff     = Base cells top - Base cells bottom\n"\
+        "cell_ratio    = Ratio of nr of base cells top / bottom\n"\
         "x             = Cell bounding box, x direction (a_1 aligned to x)\n"\
         "y             = Cell bounding box, y direction (a_1 aligned to x)\n"\
         "min_bound     = Min(x,y)\n"\
         "min_width     = Minimum width of the cell, min(l)*sin(cell_angle)\n"\
         "a_1           = Length of interface cell vector a_1\n"\
         "a_2           = Length of interface cell vector a_2\n"\
+        "strain_c      = Difference between w_seps_c and w_sep_c\n"\
+        "strain_d      = Difference between w_seps_c and w_sep_c\n"\
         "area          = Area of the interface\n"\
         "other         = Plot a custom array of values specified with keyword other. Length must match idx\n"\
         "e_int_c       = Interfacial energy, for specified translation(s)\n"\
