@@ -1247,6 +1247,71 @@ class Interface():
                 return np.matmul(base_2[:2, :2], self.rep_2[idx, :, :])
         
 
+    def getDensity(self, idx = None, base_1 = None, base_2 = None):
+        """Function for getting the area density of atoms relative to
+        unstrained configuration
+
+        idx = int, [int,], Index of the surfaces to get the vectors from
+
+        base_1 = array([2,2]), Use this as base for cell_1
+
+        base_2 = array([2,2]), Use this as base for cell_2
+        """
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = [idx]
+
+        area = self.getAreas(idx = idx, cell = 1, base_1 = base_1)
+
+        if base_1 is None: base_1 = self.base_1
+        if base_2 is None: base_2 = self.base_2
+
+        base_area_1 = np.abs(np.cross(base_1[0, :2], base_1[1, :2]))
+        base_area_2 = np.abs(np.cross(base_2[0, :2], base_2[1, :2]))
+
+        vol = base_2[2, 2] * area
+        atoms = self.atoms[idx] - area * (self.pos_1.shape[0] / base_area_1)
+        norm_density = self.pos_2.shape[0] / (base_area_2 * base_2[2, 2])
+
+        return atoms / (vol * norm_density)
+
+    
+    def getEpsMax(self, idx = None, base_1 = None, base_2 = None, abs = True):
+        """Function for getting the signed maximum strain contribution
+
+        idx = int, [int,], Index of the surfaces to get the vectors from
+
+        abs = bool, If True return the absolute value otherwise the signed max value
+
+        base_1 = array([2,2]), Use this as base for cell_1
+
+        base_2 = array([2,2]), Use this as base for cell_2
+        """
+
+        if idx is None: idx = np.arange(self.atoms.shape[0])
+        if isinstance(idx, (int, np.integer)): idx = [idx]
+
+        area = self.getAreas(idx = idx, cell = 1, base_1 = base_1)
+
+        if base_1 is None: base_1 = self.base_1
+        if base_2 is None: base_2 = self.base_2
+
+        eps_stack = self.getStrain(idx = idx, strain = "array",\
+                                           base_1 = base_1, base_2 = base_2)
+
+        if abs:
+            """Simply return the max absolute value"""
+            return np.max(np.abs(eps_stack), axis = 0)
+
+        """Otherwise get het signed max value"""
+        max = np.max(eps_stack, axis = 0)
+        min = np.min(eps_stack, axis = 0)
+
+        """Check if abs(min) is bigger than max, (to preserve sign)"""
+        max[np.abs(min) > np.abs(max)] = min[np.abs(min) > np.abs(max)]
+
+        return max
+
 
     def matchCells(self, dTheta = 4, theta = None, n_max = 4, N = None,\
                    m_max = 4, M = None, max_strain = 1, max_atoms = 5000,\
@@ -2359,20 +2424,20 @@ class Interface():
         if len(m) == 1: m = m * len(x)
         if isinstance(ab, (int, np.integer)): ab = [ab]
 
-        x_data, temp, x_lbl, x_leg = self.getData(idx = idx, var = x, ab = ab, translation = translation,\
+        x_data, x_lbl, x_leg = self.getData(idx = idx, var = x, ab = ab, translation = translation,\
                                                  compact = True, verbose = verbose, other = other)
-        y_data, temp, y_lbl, y_leg = self.getData(idx = idx, var = y, ab = ab, translation = translation,\
+        y_data, y_lbl, y_leg = self.getData(idx = idx, var = y, ab = ab, translation = translation,\
                                                   compact = True, verbose = verbose, other = other)
         if len(x_data) != len(y_data): return
 
         if len(z) > 0:
-            z_data, temp, z_lbl, z_leg = self.getData(idx = idx, var = z, ab = ab, translation = translation,\
+            z_data, z_lbl, z_leg = self.getData(idx = idx, var = z, ab = ab, translation = translation,\
                                                       compact = True, verbose = verbose, other = other)
 
             if len(x_data) != len(y_data) != len(z_data) or z_data == []: return
         else:
             z_data = None
-        print()
+
         hP = []
         if not handle:
             hFig = plt.figure()
@@ -2598,9 +2663,8 @@ class Interface():
                 ut.infoPrint(string)
                 return
 
-        data, lbl, ax, leg = self.getData(var = var, idx = idx, translation = translation,\
-                                          ab = ab, other = other, verbose = verbose - 1)
-
+        data, ax, leg = self.getData(var = var, idx = idx, translation = translation,\
+                                     ab = ab, other = other, verbose = verbose - 1)
         if shrink_idx or not true_idx:
             x = range(np.shape(idx)[0])
         else:
@@ -2737,7 +2801,6 @@ class Interface():
         if isinstance(var, str): var = [var]
 
         data = []
-        lbl_short = []
         lbl_long = []
         leg = []
 
@@ -2761,19 +2824,16 @@ class Interface():
             """Check for matches against allowed var values"""
             if item.lower() == "idx":
                 data.append(np.array(idx))
-                lbl_short.append("Index")
                 lbl_long.append("Index")
                 leg.append("I")
 
             elif item.lower() == "order":
                 data.append(self.order)
-                lbl_short.append("Order")
                 lbl_long.append("Order")
                 leg.append("O")
 
             elif item.lower() == "eps_11":
                 data.append(self.getStrain(idx = idx, strain = "eps_11", base_1 = b1, base_2 = b2))
-                lbl_short.append("$\epsilon_{11}$")
                 lbl_long.append("$\epsilon_{11}$")
                 if b1 is None:
                     leg.append("$\epsilon_{11}$")
@@ -2782,7 +2842,6 @@ class Interface():
 
             elif item.lower() == "eps_22":
                 data.append(self.getStrain(idx = idx, strain = "eps_22", base_1 = b1, base_2 = b2))
-                lbl_short.append("$\epsilon_{22}$")
                 lbl_long.append("$\epsilon_{22}$")
                 if b1 is None:
                     leg.append("$\epsilon_{22}$")
@@ -2791,7 +2850,6 @@ class Interface():
 
             elif item.lower() == "eps_12":
                 data.append(self.getStrain(idx = idx, strain = "eps_12", base_1 = b1, base_2 = b2))
-                lbl_short.append("$\epsilon_{12}$")
                 lbl_long.append("$\epsilon_{12}$")
                 if b1 is None:
                     leg.append("$\epsilon_{12}$") 
@@ -2800,7 +2858,6 @@ class Interface():
 
             elif item.lower() == "eps_mas":
                 data.append(self.getStrain(idx = idx, strain = "eps_mas", base_1 = b1, base_2 = b2))
-                lbl_short.append("$\epsilon_{mas}$")
                 lbl_long.append("$\epsilon_{mas}$")
                 if b1 is None:
                     leg.append("$\epsilon_{mas}$")
@@ -2808,14 +2865,7 @@ class Interface():
                     leg.append("$\epsilon_{mas}^{\dagger}$")
 
             elif item.lower() == "eps_max":
-                eps_stack = self.getStrain(idx = idx, strain = "array",\
-                                           base_1 = b1, base_2 = b2)
-                max = np.max(eps_stack, axis = 0)
-                min = np.min(eps_stack, axis = 0)
-                """Check if abs(min) is bigger than max, (to preserve sign)"""
-                max[np.abs(min) > np.abs(max)] = min[np.abs(min) > np.abs(max)]
-                data.append(max)
-                lbl_short.append("Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})$")
+                data.append(self.getEpsMax(idx = idx, base_1 = b1, base_2 = b2, abs = False))
                 lbl_long.append("Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})$")
                 if b1 is None:
                     leg.append("Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})$")
@@ -2823,10 +2873,7 @@ class Interface():
                     leg.append("Max$(\epsilon_{11},\epsilon_{22},\epsilon_{12})^{\dagger}$")
 
             elif item.lower() == "eps_max_a":
-                eps_stack = self.getStrain(idx = idx, strain = "array",\
-                                           base_1 = b1, base_2 = b2)
-                data.append(np.max(np.abs(eps_stack), axis = 0))
-                lbl_short.append("Max$(|\epsilon_{11},\epsilon_{22},\epsilon_{12}|)$")
+                data.append(self.getEpsMax(idx = idx, base_1 = b1, base_2 = b2, abs = True))
                 lbl_long.append("Max$(|\epsilon_{11},\epsilon_{22},\epsilon_{12}|)$")
                 if b1 is None:
                     leg.append("Max$(|\epsilon_{11},\epsilon_{22},\epsilon_{12}|)$")
@@ -2835,13 +2882,11 @@ class Interface():
 
             elif item.lower() == "atoms":
                 data.append(self.atoms[idx])
-                lbl_short.append("Atoms")
                 lbl_long.append("Atoms")
                 leg.append("Atoms")
 
             elif item.lower() == "angle":
                 data.append(self.getBaseAngles(idx = idx, cell = 1, rad = False, base_1 = b1))
-                lbl_short.append("Cell Ang, (Deg)")
                 lbl_long.append("Cell Angle, (Deg)")
                 if b1 is None:
                     leg.append("Angle")
@@ -2852,7 +2897,6 @@ class Interface():
                 eps_stack = self.getStrain(idx = idx, strain = "array",\
                                            base_1 = b1, base_2 = b2)
                 data.append(np.linalg.norm(eps_stack, axis = 0))
-                lbl_short.append("$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$")
                 lbl_long.append("$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$")
                 if b1 is None:
                     leg.append("$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2+\epsilon_{21}^2}$")
@@ -2863,7 +2907,6 @@ class Interface():
                 eps_stack = self.getStrain(idx = idx, strain = "array",\
                                            base_1 = b1, base_2 = b2)
                 data.append(np.sqrt(eps_stack[1, :]**2 + eps_stack[0, :]**2))
-                lbl_short.append("$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2}$")
                 lbl_long.append("$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2}$")
                 if b1 is None:
                     leg.append("$\sqrt{\epsilon_{11}^2+\epsilon_{22}^2}$")
@@ -2874,7 +2917,6 @@ class Interface():
                 eps_stack = self.getStrain(idx = idx, strain = "array",\
                                            base_1 = b1, base_2 = b2)
                 data.append(np.abs(eps_stack[0, :]) + np.abs(eps_stack[1, :]))
-                lbl_short.append("$|\epsilon_{11}|+|\epsilon_{22}|$")
                 lbl_long.append("$|\epsilon_{11}|+|\epsilon_{22}|$")
                 if b1 is None:
                     leg.append("$|\epsilon_{11}|+|\epsilon_{22}|$")
@@ -2889,7 +2931,6 @@ class Interface():
                 """Check if abs(min) is bigger than max, (to preserve sign)"""
                 max[np.abs(min) > np.abs(max)] = min[np.abs(min) > np.abs(max)]
                 data.append(max)
-                lbl_short.append("Max$(\epsilon_{11},\epsilon_{22})$")
                 lbl_long.append("Max$(\epsilon_{11},\epsilon_{22})$")
                 if b1 is None:
                     leg.append("Max$(\epsilon_{11},\epsilon_{22})$")
@@ -2900,7 +2941,6 @@ class Interface():
                 eps_stack = self.getStrain(idx = idx, strain = "array",\
                                            base_1 = b1, base_2 = b2)[0::2, :]
                 data.append(np.max(np.abs(eps_stack), axis = 0))
-                lbl_short.append("Max$(|\epsilon_{11},\epsilon_{22}|)$")
                 lbl_long.append("Max$(|\epsilon_{11},\epsilon_{22}|)$")
                 if b1 is None:
                     leg.append("Max$(|\epsilon_{11},\epsilon_{22}|)$")
@@ -2909,26 +2949,22 @@ class Interface():
 
             elif item.lower() == "rotation":
                 data.append(self.ang[idx])
-                lbl_short.append("Init Rot, (Deg)")
                 lbl_long.append("Initial Rotation, (Deg)")
                 leg.append("Rot")
 
             elif item.lower() == "cell_diff":
                 data.append(self.getCellCount(idx = idx, cell = 2) - 
                             self.getCellCount(idx = idx, cell = 1))
-                lbl_short.append("$N_{T}-N_{B}$, (Nr)")
                 lbl_long.append("Nr of Cells Top - Bottom, (Nr)")
                 leg.append("$N_{T}-N_{B}$")
 
             elif item.lower() == "cell_ratio":
                 data.append(self.getCellCountRatio(idx = idx))
-                lbl_short.append("$N_{T}/N_{B}$")
                 lbl_long.append("Nr of Cells Top/Bottom")
                 leg.append("$N_{T}/N_{B}$")
 
             elif item.lower() == "x":
                 data.append(self.getBounds(idx = idx, cell = 1, base_1 = b1)[0, :])
-                lbl_short.append("L $x^{C}$, ($\AA$)")
                 lbl_long.append("Length $x^{C}$, ($\AA$)")
                 if b1 is None:
                     leg.append("$x^{C}$")
@@ -2937,7 +2973,6 @@ class Interface():
 
             elif item.lower() == "y":
                 data.append(self.getBounds(idx = idx, cell = 1, base_1 = b1)[1, :])
-                lbl_short.append("L $y^{C}$, ($\AA$)")
                 lbl_long.append("Length $y^{C}$, ($\AA$)")
                 if b1 is None:
                     leg.append("$y^{C}$")
@@ -2946,7 +2981,6 @@ class Interface():
 
             elif item.lower() == "min_bound":
                 data.append(np.min(self.getBounds(idx = idx, cell = 1, base_1 = b1), axis = 0))
-                lbl_short.append("Min($x^{C},y^{C}$), ($\AA$)")
                 lbl_long.append("Min($x^{C},y^{C}$), ($\AA$)")
                 if b1 is None:
                     leg.append("$Min(x^{C},y^{C})$")
@@ -2955,7 +2989,6 @@ class Interface():
         
             elif item.lower() == "min_width":
                 data.append(self.getMinWidth(idx = idx, cell = 1, base_1 = b1))
-                lbl_short.append("Min Width, ($\AA$)")
                 lbl_long.append("Min Width, ($\AA$)")
                 if b1 is None:
                     leg.append("Min Width")
@@ -2964,7 +2997,6 @@ class Interface():
         
             elif item.lower() == "a_1":
                 data.append(self.getCellLengths(idx = idx, cell = 1, base_1 = b1)[:, 0])
-                lbl_short.append("L $a_1$, ($\AA$)")
                 lbl_long.append("Length $a_1$, ($\AA$)")
                 if b1 is None:
                     leg.append("$a_1$")
@@ -2973,7 +3005,6 @@ class Interface():
 
             elif item.lower() == "a_2":
                 data.append(self.getCellLengths(idx = idx, cell = 1, base_1 = b1)[:, 1])
-                lbl_short.append("L $a_2$, ($\AA$)")
                 lbl_long.append("Length $a_2$, ($\AA$)")
                 if b1 is None:
                     leg.append("$a_2$")
@@ -2982,7 +3013,6 @@ class Interface():
 
             elif item.lower() == "area":
                 data.append(self.getAreas(idx = idx, cell = 1, base_1 = b1))
-                lbl_short.append("Area, ($\AA^2$)")
                 lbl_long.append("Area, ($\AA^2$)")
                 if b1 is None:
                     leg.append("Area")
@@ -2993,12 +3023,10 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.getStrainContribution(idx = idx, version = "c", translation = t)[0, :])
-                        lbl_short.append("W (W$_{S}^{C}$-W$_{US}^{C}$), ($eV/\AA^2$)")
                         lbl_long.append("W, Strained-Unstrained, ($eV/\AA^2$)")
                         leg.append("$\Delta W_{S-US,%i}$" % t)
                 else:
                     data.append(self.getStrainContribution(idx = idx, version = "c", translation = translation))
-                    lbl_short.append("W (W$_{S}^{C}$-W$_{US}^{C}$), ($eV/\AA^2$)")
                     lbl_long.append("W, Strained-Unstrained, ($eV/\AA^2$)")
                     [leg.append("$\Delta W_{S-US,%i}^{C}$" % t) for t in translation]
 
@@ -3006,34 +3034,16 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.getStrainContribution(idx = idx, version = "d", translation = t)[0, :])
-                        lbl_short.append("W (W$_{S}^{D}$-W$_{US}^{D}$), ($eV/\AA^2$)")
                         lbl_long.append("W, Strained-Unstrained, ($eV/\AA^2$)")
                         leg.append("$\Delta W_{S-US,%i}^{D}$" % t)
                 else:
                     data.append(self.getStrainContribution(idx = idx, version = "d", translation = translation))
-                    lbl_short.append("W (W$_{S}^{D}$-W$_{US}^{D}$), ($eV/\AA^2$)")
                     lbl_long.append("W, Strained-Unstrained, ($eV/\AA^2$)")
                     [leg.append("$\Delta W_{S-US,%i}^{D}$" % t) for t in translation]
 
 
             elif item.lower() == "density":
-                area = self.getAreas(idx = idx, cell = 1, base_1 = b1)
-                if b1 is None:
-                    baseD_1 = self.base_1
-                    baseD_2 = self.base_2
-                else:
-                    baseD_1 = b1
-                    baseD_2 = b2
-
-                base_area_1 = np.abs(np.cross(baseD_1[0, :2], baseD_1[1, :2]))
-                base_area_2 = np.abs(np.cross(baseD_2[0, :2], baseD_2[1, :2]))
-
-                vol = baseD_2[2, 2] * area
-                atoms = self.atoms[idx] - area * (self.pos_1.shape[0] / base_area_1)
-                norm_density = self.pos_2.shape[0] / (base_area_2 * baseD_2[2, 2])
-
-                data.append(atoms / (vol * norm_density))
-                lbl_short.append("$\\rho$, (Atoms/$N\AA^2$)")
+                data.append(self.getDensity(idx = idx, base_1 = b1, base_2 = b2))
                 lbl_long.append("Normalized Atom Density, (Atoms/$N\AA^2$)")
                 if b1 is None:
                     leg.append("$\\rho$")
@@ -3050,12 +3060,10 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.e_int_c[idx, :][:, t])
-                        lbl_short.append("E$_{I,%i}^{C}$, ($eV/\AA^2$)" % t)
                         lbl_long.append("Interfacial Energy, ($eV/\AA^2$)")
                         leg.append("E$_{I,%i}^{C}$" % t)
                 else:
                     data.append(self.e_int_c[idx, :][:, translation].T)
-                    lbl_short.append("E$_{I}^{C}$, ($eV/\AA^2$)")
                     lbl_long.append("Interfacial Energy, ($eV/\AA^2$)")
                     [leg.append("E$_{I,%i}^{C}$" % t) for t in translation]
                         
@@ -3069,26 +3077,22 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.e_int_d[idx, :][:, t])
-                        lbl_short.append("E$_{I,%i}^{D}$, ($eV/\AA^2$)" % t)
                         lbl_long.append("Interfacial Energy (DFT), ($eV/\AA^2$)")
                         leg.append("E$_{I,%i}^{D}$" % t)
                 else:
                     data.append(self.e_int_d[idx, :][:, translation].T)
-                    lbl_short.append("E$_{I}^{D}$, ($eV/\AA^2$)")
                     lbl_long.append("Interfacial Energy (DFT), ($eV/\AA^2$)")
                     [leg.append("E$_{I,%i}^{D}$"  % t) for t in translation]
 
             elif item.lower() == "e_int_diff_c":
                 data.append(np.max(self.e_int_c[idx, :], axis = 1) -\
                             np.min(self.e_int_c[idx, :], axis = 1))
-                lbl_short.append("$\Delta$E$_{I}^{C}$, ($eV/\AA^2$)")
                 lbl_long.append("$\Delta$Interfacial Energy, ($eV/\AA^2$)")
                 leg.append("$\Delta$E$_{I}^{C}$")
 
             elif item.lower() == "e_int_diff_d":
                 data.append(np.max(self.e_int_d[idx, :], axis = 1) -\
                             np.min(self.e_int_d[idx, :], axis = 1))
-                lbl_short.append("$\Delta$E$_{I}^{D}$, ($eV/\AA^2$)")
                 lbl_long.append("$\Delta$Interfacial Energy (DFT), ($eV/\AA^2$)")
                 leg.append("$\Delta$E$_{I}^{D}$")
 
@@ -3102,12 +3106,10 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.w_sep_c[idx, :][:, t])
-                        lbl_short.append("W$_{%i}^{C}$, ($eV/\AA^2$)" % t)
                         lbl_long.append("Work of Adhesion, ($eV/\AA^2$)")
                         leg.append("W$_{%i}^{C}$" % t)
                 else:
                     data.append(self.w_sep_c[idx, :][:, translation].T)
-                    lbl_short.append("W$^{C}$, ($eV/\AA^2$)")
                     lbl_long.append("Work of Adhesion, ($eV/\AA^2$)")
                     [leg.append("W$_{%i}^{C}$" % t) for t in translation]
 
@@ -3121,40 +3123,34 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.w_sep_d[idx, :][:, t])
-                        lbl_short.append("W$_{%i}^{D}$, ($eV/\AA^2$)" % t)
                         lbl_long.append("Work of Adhesion (DFT), ($eV/\AA^2$)")
                         leg.append("W$_{%i}^{D}$" % t)
                 else:
                     data.append(self.w_sep_d[idx, :][:, translation].T)
-                    lbl_short.append("W$^{D}$, ($eV/\AA^2$)")
                     lbl_long.append("Work of Adhesion (DFT), ($eV/\AA^2$)")
                     [leg.append("W$_{%i}^{D}$" % t) for t in translation]
 
             elif item.lower() == "w_sep_diff_c":
                 data.append(np.max(self.w_sep_c[idx, :], axis = 1) -\
                             np.min(self.w_sep_c[idx, :], axis = 1))
-                lbl_short.append("$\Delta$W$^{C}$, ($eV/\AA^2$)")
                 lbl_long.append("$\Delta$Work of Adhesion, ($eV/\AA^2$)")
                 leg.append("$\Delta$W$^{C}$")
 
             elif item.lower() == "w_sep_diff_d":
                 data.append(np.max(self.w_sep_d[idx, :], axis = 1) -\
                             np.min(self.w_sep_d[idx, :], axis = 1))
-                lbl_short.append("$\Delta$W$^{D}$, ($eV/\AA^2$)")
                 lbl_long.append("$\Delta$Work of Adhesion (DFT), ($eV/\AA^2$)")
                 leg.append("$\Delta$W$^{D}$")
 
             elif item.lower() == "w_seps_diff_c":
                 data.append(np.max(self.w_seps_c[idx, :], axis = 1) -\
                             np.min(self.w_seps_c[idx, :], axis = 1))
-                lbl_short.append("$\Delta$W$^{SC}$, ($eV/\AA^2$)")
                 lbl_long.append("$\Delta$Work of Adhesion (Strained), ($eV/\AA^2$)")
                 leg.append("$\Delta$W$^{SC}$")
 
             elif item.lower() == "w_seps_diff_d":
                 data.append(np.max(self.w_seps_d[idx, :], axis = 1) -\
                             np.min(self.w_seps_d[idx, :], axis = 1))
-                lbl_short.append("$\Delta$W$^{SD}$, ($eV/\AA^2$)")
                 lbl_long.append("$\Delta$Work of Adhesion (Strained) (DFT), ($eV/\AA^2$)")
                 leg.append("$\Delta$W$^{SD}$")
 
@@ -3168,12 +3164,10 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.w_seps_c[idx, :][:, t])
-                        lbl_short.append("W$^{SC}_{%i}$, ($eV/\AA^2$)" % t)
                         lbl_long.append("Work of Adhesion (Strained), ($eV/\AA^2$)")
                         leg.append("W$_{%i}^{SC}$" % t)
                 else:
                     data.append(self.w_seps_c[idx, :][:, translation].T)
-                    lbl_short.append("W$^{SC}$, ($eV/\AA^2$)")
                     lbl_long.append("Work of Adhesion (Strained), ($eV/\AA^2$)")
                     [leg.append("W$_{%i}^{SC}$" % t) for t in translation]
 
@@ -3187,18 +3181,15 @@ class Interface():
                 if not compact:
                     for t in translation:
                         data.append(self.w_seps_d[idx, :][:, t])
-                        lbl_short.append("W$^{SD}_{%i}$, ($eV/\AA^2$)" % t)
                         lbl_long.append("Work of Adhesion (Strained) (DFT), ($eV/\AA^2$)")
                         leg.append("W$^{SD}_{%i}$" % t)
                 else:
                     data.append(self.w_seps_d[idx, :][:, translation].T)
-                    lbl_short.append("W$^{SD}$, ($eV/\AA^2$)")
                     lbl_long.append("Work of Adhesion (Strained) (DFT), ($eV/\AA^2$)")
                     [leg.append("W$_{%i}^{SD}$" % t) for t in translation]
 
             elif item.lower() == "other":
                 data.append(other)
-                lbl_short.append("Custom")
                 lbl_long.append("Custom")
                 leg.append("C")
 
@@ -3209,12 +3200,12 @@ class Interface():
                 avail = " Available properties are "
                 print("=" * 5 + avail + "=" * 19 + "\n" + prop + "\n" + "=" * 50)
 
-        return data, lbl_short, lbl_long, leg
+        return data, lbl_long, leg
 
 
 
     def plotHistogram(self, var, idx = None, translation = None, other = None,\
-                      verbose = 1, ab = [], bins = 100, minmax = None,\
+                      verbose = 1, ab = [], bins = 100, xlim = None,\
                       cmap = "tab10", row = 1, col = 1, N = 1, save = False,\
                       dpi = 100, format = "pdf", shift = None, **kwargs):
         """Function for plotting histograms of specified data
@@ -3235,7 +3226,7 @@ class Interface():
 
         bins = int or array(len(data + 1)), Bins in the histogram
 
-        minmax = [float, float], [Min,Max] of the histogram
+        xlim = [float, float], [Min,Max] of the histogram
 
         shift = float, Shift the curves on the y axis by this amount
         for differentiating between the lines
@@ -3273,7 +3264,7 @@ class Interface():
 
         x, y, lbl, leg = self.getHistogram(var = var, idx = idx, translation = translation,\
                                            verbose = verbose, ab = ab, other = other,\
-                                           bins = bins, minmax = minmax)
+                                           bins = bins, minmax = xlim)
 
         cmap = kwargs.pop("colormap", cmap)
         c = plt.cm.get_cmap(cmap)(range(len(x)))
@@ -3332,10 +3323,9 @@ class Interface():
         if idx is None: idx = np.arange(self.atoms.shape[0])
         if translation is None: translation = [0]
         if isinstance(translation, (int, np.integer)): translation = [translation]
-                
-        data, temp, lbl, leg = self.getData(var = var, idx = idx, translation = translation,\
-                                            verbose = verbose, ab = ab, other = other)
 
+        data, lbl, leg = self.getData(var = var, idx = idx, translation = translation,\
+                                      verbose = verbose, ab = ab, other = other)
         x = []
         y = []
         for i, item in enumerate(data):
@@ -3368,10 +3358,9 @@ class Interface():
         if idx is None: idx = np.arange(self.atoms.shape[0])
         if translation is None: translation = [0]
         if isinstance(translation, (int, np.integer)): translation = [translation]
-                
-        data, lbl = self.getData(var = var, idx = idx, translation = translation,\
-                                 verbose = verbose, ab = ab, other = other)[:2]
 
+        data, lbl = self.getData(var = var, idx = idx, translation = translation,\
+                                 verbose = verbose, ab = ab, other = other)[::2]
         string = ""
         for i, item in enumerate(data):
             if i == 0:
