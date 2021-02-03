@@ -1010,6 +1010,55 @@ class Interface():
         return np.abs(np.linalg.det(uCell))
 
 
+    def getBox(self, idx = None, cell = None, angle = None, verbose = 1, pad = 3, equal = True):
+        """Function for getting the square bounding box around an interface
+
+        idx = int, index of interface
+
+        cell = array(2, 2) or array(2,4), Use this specific cell, overrides idx if not None
+
+        angle = float, Angle in radians how the cell is rotated relative to as constructed
+
+        equal = bool, make the box edges equal in length
+
+        pad = float, Pad the edges with this
+        """
+
+        if idx is None and cell is None: return
+
+        if cell is None:
+            cell = np.hstack((self.cell_1[idx, :, :], self.cell_2[idx, :, :]))
+            if angle is not None:
+                cell = ut.rotate(cell, angle, verbose = verbose)
+                print(cell)
+
+        if np.shape(cell)[1] == 2:
+            edges = np.hstack((cell, np.sum(cell, axis = 1)[:, None], np.zeros((2, 1))))
+        else:
+            edges = np.hstack((cell, np.sum(cell[:2, :2], axis = 1)[:, None],\
+                               np.sum(cell[:2, 2:], axis = 1)[:, None], np.zeros((2, 1))))
+
+        box = np.array([np.min(edges[0, :]), np.max(edges[0, :]),\
+                        np.min(edges[1, :]), np.max(edges[1, :])])
+
+        if equal:
+            xl = box[1] - box[0]
+            yl = box[3] - box[2]
+            if xl > yl:
+                box[2] -= (xl - yl) / 2
+                box[3] += (xl - yl) / 2
+            elif yl > xl:
+                box[0] -= (yl - xl) / 2
+                box[1] += (yl - xl) / 2
+
+        box[0] -= pad
+        box[1] += pad
+        box[2] -= pad
+        box[3] += pad
+        
+        return box
+
+
     def getBounds(self, idx = None, cell = 1, base_1 = None, base_2 = None):
         """Function for getting the ortogonal x-y bounds of the specified interfaces
 
@@ -1994,13 +2043,6 @@ class Interface():
         vec_bay = np.array([vec_by[1], vec_by[1] + vec_ay[1]])
         hAx.plot(vec_bax, vec_bay, linewidth = lw, color = 'k', ls = '-')
 
-        """Get the extent of the plotted figure"""
-        box = np.zeros((2, 4))
-        box[0, :] = np.array([np.min([vec_ax, vec_bx, vec_abx, vec_bax]),\
-                              np.max([vec_ax, vec_bx, vec_abx, vec_bax]),\
-                              np.min([vec_ay, vec_by, vec_aby, vec_bay]),\
-                              np.max([vec_ay, vec_by, vec_aby, vec_bay])])
-
         """Annotate with original B lattice vectors, if selected"""
         if annotate:
             vec_ax_an = np.array([0, top[0, 0]])
@@ -2021,29 +2063,13 @@ class Interface():
             vec_bay_an = np.array([vec_by_an[1], vec_by_an[1] + vec_ay_an[1]])
             hAx.plot(vec_bax_an, vec_bay_an, linewidth = 1, color = 'k', ls = '--')
 
-            """Get the extent of the plotted figure"""
-            box[1, :] = np.array([np.min([vec_ax_an, vec_bx_an, vec_abx_an, vec_bax_an]),\
-                                  np.max([vec_ax_an, vec_bx_an, vec_abx_an, vec_bax_an]),\
-                                  np.min([vec_ay_an, vec_by_an, vec_aby_an, vec_bay_an]),\
-                                  np.max([vec_ay_an, vec_by_an, vec_aby_an, vec_bay_an])])
-
-        l1 = np.min(box[:, 1] - box[:, 0])
-        l2 = np.min(box[:, 3] - box[:, 2])
-        margin = np.min([4, l1, l2])
-
-        xMin = np.min(box[:, 0]) - margin
-        yMin = np.min(box[:, 2]) - margin
-        xMax = np.max(box[:, 1]) + margin
-        yMax = np.max(box[:, 3]) + margin
-
         if scale:
-            xMin = np.min(box) - margin
-            xMax = np.max(box) + margin
-            yMin = xMin
-            yMax = xMax
+            box = self.getBox(pad = 3, cell = np.hstack((mat, top)))
+        else:
+            box = self.getBox(pad = 3, cell = np.hstack((mat, top)), equal = False)
 
-        hAx.set_xlim(left = xMin, right = xMax)
-        hAx.set_ylim(bottom = yMin, top = yMax)
+        hAx.set_xlim(left = box[0], right = box[1])
+        hAx.set_ylim(bottom = box[2], top = box[3])
 
         hAx.set_title("Interface %s" % idx)
         if not handle:
@@ -3401,7 +3427,7 @@ class Interface():
     def plotCorrCoef(self, var, idx = None, translation = None, other = None,\
                          verbose = 1, cmap = "bwr", save = False, dpi = 100, format = "pdf",\
                          vmin = -1, vmax = 1, version = "pearson", rho = False, round = 2,\
-                         ab = []):
+                         ab = [], figsize = None):
         """Function to plot the covariance matrix or the supplied variables
 
         For available values for "var" see getData method
@@ -3433,15 +3459,19 @@ class Interface():
         if "both".startswith(version.lower()):
             row = 1; col = 2
             ver = ["Pearson", "Spearman"]
-            hFig = plt.figure(figsize = (11, 4.75))
+            #hFig = plt.figure(figsize = (11, 4.75))
         elif "pearson".startswith(version.lower()):
             row = 1; col = 1
             ver = ["Pearson"]
-            hFig = plt.figure(figsize = (8, 6.5))
+            #hFig = plt.figure(figsize = (8, 6.5))
         elif "spearman".startswith(version.lower()):
             row = 1; col = 1
             ver = ["Spearman"]
-            hFig = plt.figure(figsize = (8, 6.5))
+            #hFig = plt.figure(figsize = (8, 6.5))
+        if figsize is None:    
+            hFig = plt.figure()
+        else:
+            hFig = plt.figure(figsize = figsize)
 
         v = 0
         for i in range(row * col):
@@ -3463,6 +3493,8 @@ class Interface():
             hAx.set_yticklabels(lbl)
 
             plt.setp(hAx.get_xticklabels(), rotation = 45, ha = "right",
+                     rotation_mode = "anchor")
+            plt.setp(hAx.get_yticklabels(), rotation = 30, ha = "right",
                      rotation_mode = "anchor")
 
             if (col * row == 1) or ((i + 1) == col * row):

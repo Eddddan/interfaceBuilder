@@ -3,7 +3,7 @@
 import matplotlib.pyplot as plt
 
 """Set some plotting defaults"""
-plotParams = {"font.size": 14,\
+plotParams = {"font.size": 12,\
               "font.family": "serif",\
               "axes.titlesize": "medium",\
               "axes.labelsize": "small",\

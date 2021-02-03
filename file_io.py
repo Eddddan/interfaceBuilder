@@ -160,7 +160,7 @@ def readEON(filename, verbose = 1):
                 n = 0; nt = 0
                 pos = np.zeros((Nt[-1], 3))
                 idx = np.zeros(Nt[-1])
-                mass = np.ones(Nt)
+                mass = np.ones(Nt[-1])
             elif i == 8:
                 """Mass"""
                 masses = np.array([np.float(x) for x in line.split()])
@@ -168,12 +168,12 @@ def readEON(filename, verbose = 1):
                 """Atom type of species 1"""
                 t = np.chararray(Nt[-1], itemsize = 2)
                 t[:Nt[nt]] = line
-                mass[:Nt[nt]] = [masses[nt]]
+                mass[:Nt[nt]] = masses[nt]
             elif i > 10:
                 l = line.split()
                 if len(l) == 1:
                     t[Nt[nt] : Nt[nt + 1]] = line
-                    mass[Nt[nt] : Nt[nt + 1]] = [masses[nt + 1]]
+                    mass[Nt[nt] : Nt[nt + 1]] = masses[nt + 1]
                     nt += 1
                 elif len(l) == 4:
                     continue
@@ -598,3 +598,4 @@ def writeData(filename, atoms, format = "eon", sd = False, direct = False, verbo
     else:
         print("Unrecognized file format")
         sys.exit()
+

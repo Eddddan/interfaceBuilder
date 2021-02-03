@@ -152,40 +152,6 @@ class Structure():
             self.idx = self.idx[si]
 
 
-    def combineTypes(self, combine, element, verbose = 1):
-        """Function for combining atom types in to the same group.
-
-           combine = list, index of groups to combine
-
-           element = str, element for the new combined group
-        """
-
-        name = np.chararray(1, itemsize = 2)
-        name[0] = element
-
-        mask = np.zeros(self.type_i.shape[0], dtype = bool)
-        for i in combine:
-            mask[self.type_i == i] = True
-
-        negative = np.logical_not(mask)
-        if np.any(self.type_n[negative] == name):
-            string = "Can not change new group element to %s as that already exist in another group"
-            ut.infoPrint(string)
-            return
-
-        self.type_i[mask] = np.min(combine)
-        self.type_n[mask] = element
-
-        last = 1
-        for i, item in enumerate(np.unique(self.type_i)):
-            self.type_i[self.type_i == item] = i + 1
-
-        if verbose > 0:
-            string = "Combining types %s into type %s with element type %s"\
-                     % (combine, np.min(combine), element)
-            ut.infoPrint(string)
-
-
     def resetIndex(self, verbose = 1):
         """Function for reseting the atomic indicies
 
@@ -285,10 +251,6 @@ class Structure():
 
         Mode and options
         ----------------
-        box     - [x_lo, x_hi, y_lo, y_hi, z_lo, z_hi]
-        sphere  - [x, y, z, radius]
-        type    - [list of all types to include]
-        idx     - [list of all atomic indices to include]
         layer_x - [x_center, dx], slice out atoms within x_center +- dx
         layer_y - [y_center, dy], slice out atoms within y_center +- dy
         layer_z - [z_center, dz], slice out atoms within z_center +- dz
@@ -680,14 +642,6 @@ class Structure():
         if not handle:
             hFig = plt.figure()
 
-        """Set some defaults"""
-        #ls = kwargs.pop("linestyle", "--")
-        #lw = kwargs.pop("linewidth", 0.5)
-        #m = kwargs.pop("marker", "o")
-        #ms = kwargs.pop("markersize", 3)
-        #cs = kwargs.pop("capsize", 2)
-        #elw = kwargs.pop("elinewidth", 1)
-
         hAx = plt.subplot(row, col, N)
         label = "_ignore"
         for i, item in enumerate(y):
@@ -769,7 +723,6 @@ class Structure():
         
         if not handle:
             hFig = plt.figure()
-        #m = kwargs.pop("marker")
         hAx = plt.subplot(row, col, N)
         for i in range(np.shape(distance)[0]):
             hAx.plot(x, distance[i, :], **kwargs)
@@ -778,8 +731,6 @@ class Structure():
         hAx.set_title("Nearest Neighbor Distances")
         hAx.set_xlabel("Neighbor")
         hAx.set_ylabel("Distance, $(\AA)$")
-        #hAx.set_xticks(np.arange(1, 7))
-        #hAx.set_xticklabels(["W$_1$", "W$_2$", "W$_3$", "W$_4$", "W$_5$", "W$_6$"])
         if legend is not None:
             hAx.legend(legend, ncol = 2, frameon = False)
         
@@ -1065,32 +1016,6 @@ class Structure():
         self.cell[:, 0] *= x
         self.cell[:, 1] *= y
         self.cell[:, 2] *= z
-
-
-
-    def addVacuum(self, va = 1, vb = 1, vc = 1, verbose = 1):
-        """Function for adding a vacuum layer to a structure"""
-
-        """Change to cartesian coordinates"""
-        self.dir2car()
-
-        """Set up matrix to extend the cell dimensions as specified"""
-        vacuum = np.array([[va, 0, 0], [0, vb, 0], [0, 0, vc]])
-
-        """Extend with vacuum"""
-        self.cell = np.matmul(self.cell, vacuum)
-
-        if verbose > 0:
-            
-            for i in range(3):
-                string = "%10.4f %10.4f %10.4f" % (self.cell[i, 0], self.cell[i, 1], self.cell[i, 2])
-                if i == 0:
-                    ut.infoPrint(string, sep_before = True, sep_after = False)
-                elif i == 1:
-                    ut.infoPrint(string, sep_before = False, sep_after = False)
-                else:
-                    ut.infoPrint(string, sep_before = False, sep_after = True)
-
 
 
     def stretchCell(self, x = 1, y = 1, z = 1, transform = None, verbose = 1):

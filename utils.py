@@ -24,7 +24,7 @@ def loadInterfaces(filename, verbose = 1):
             string = "Loading data from: %s" % filename
             infoPrint(string)
 
-            return obj
+        return obj
 
     except FileNotFoundError as e:
         string = "Error: File <%s> not found" % filename
@@ -546,13 +546,14 @@ def getTranslation(translation, surface, verbose = 1):
 
     translation = int, Specifier for the particular transltion of interest
 
-    surface = str("0001" / "10-10" / "B100"), Specifier for the type of surface
+    surface = str("0001"/"10-10"/"B100"/"B110"/"F100"/"F110"), Specifier for the type of surface
     -------------------
     0001  = Basal plane of HCP
     10-10 = Prismatic plane of HCP
     B100  = 100 surface of BCC
     B110  = 110 surface of BCC
     F100  = 100 surface of FCC
+    F110  = 110 surface of FCC
 
     verbose = int, Print extra information
     """
@@ -560,144 +561,118 @@ def getTranslation(translation, surface, verbose = 1):
     if not isinstance(translation, (int, np.integer)):
         if isinstance(translation, (list, np.ndarray)) and np.shape(translation)[0] > 1:
             T = np.array([translation[0], translation[1], 0])
-            site = "Other"
+            site = "N.A."
             if verbose > 0:
-                string = "Surface: %s | Translation made to site: %s"\
-                    % (surface, site)
+                string = "Surface: %s | Translation made to site: %.2f, %.2f, %.2f"\
+                    % (surface, T[0], T[1], T[2])
                 infoPrint(string)
             return T, site
         else:
             T = np.array([0, 0, 0])
-            site = "Top"
+            site = "N.A."
             if verbose > 0:
-                string = "Surface: %s | Translation made to site: %s"\
-                    % (surface, site)
+                string = "Surface: %s | Translation made to site: %.2f, %.2f, %.2f"\
+                    % (surface, T[0], T[1], T[2])
                 infoPrint(string)
             return T, site
 
     if surface is None:
         T = np.array([0, 0, 0])
-        site = "Top"
+        site = "N.A."
         if verbose > 0:
-            string = "Surface: %s | Translation made to site: %s"\
-                 % (surface, site)
+            string = "Surface: %s | Translation made to site: %.2f, %.2f, %.2f"\
+                 % (surface, T[0], T[1], T[2])
             infoPrint(string)
         return T, site
 
     if surface.lower() == "0001":
         if translation == 0:
-            site = "Top"
             T = np.array([0, 0, 0])
 
         elif translation == 1:
-            site = "Hollow-On"
             T = np.array([2/3, 1/3, 0])
 
         elif translation == 2:
-            site = "Hollow-Off"
             T = np.array([1/3, -1/3, 0])
 
         elif translation == 3:
-            site = "Bridge"
             T = np.array([0, 1/2, 0])
 
         elif translation > 3:
-            site = "Translation out of range"
             T = np.array([0, 0, 0])
 
     elif surface.lower() == "10-10":
         if translation == 0:
-            site = "Top"
             T = np.array([0, 0, 0])
 
         elif translation == 1:
-            site = "Hollow"
             T = np.array([0.5, 0.5, 0])
 
         elif translation == 2:
-            site = "Bridge-On"
             T = np.array([0, 0.5, 0])
 
         elif translation == 3:
-            site = "Bridge-Off"
             T = np.array([0.5, 0, 0])
 
         elif translation > 3:
-            site = "Translation out of range"
             T = np.array([0, 0, 0])
 
     elif surface.lower() == "b100":
         if translation == 0:
-            site = "Top-Corner"
             T = np.array([0, 0, 0])
 
         elif translation == 1:
-            site = "Top-Center"
             T = np.array([0.5, 0.5, 0])
 
         elif translation == 2:
-            site = "Bridge"
             T = np.array([0.5, 0, 0])
 
         elif translation > 2:
-            site = "Translation out of range"
             T = np.array([0, 0, 0])
             
     elif surface.lower() == "b110":
         if translation == 0:
-            site = "Bridge-Top"
             T = np.array([0, 0, 0])
 
         elif translation == 1:
-            site = "Bridge-Off"
             T = np.array([0.5, 0.5, 0])
 
         elif translation == 2:
-            site = "Top"
             T = np.array([0.5, 0, 0])
 
         elif translation > 2:
-            site = "Translation out of range"
             T = np.array([0, 0, 0])
 
     elif surface.lower() == "f100":
         if translation == 0:
-            site = "Top"
             T = np.array([0, 0, 0])
 
         elif translation == 1:
-            site = "Hollow"
             T = np.array([0.5, 0, 0])
 
         elif translation == 2:
-            site = "Bride"
             T = np.array([0.25, 0.25, 0])
 
         elif translation > 2:
-            site = "Translation out of range"
             T = np.array([0, 0, 0])
 
     elif surface.lower() == "f110":
         if translation == 0:
-            site = "Top"
             T = np.array([0, 0, 0])
 
         elif translation == 1:
-            site = "Bridge"
             T = np.array([0.5, 0, 0])
 
         elif translation == 2:
-            site = "Hollow"
             T = np.array([0.5, 0.5, 0])
 
         elif translation > 2:
-            site = "Translation out of range"
             T = np.array([0, 0, 0])
 
-            
+    site = "N.A."
     if verbose > 0:
-        string = "Surface: %s | Translation made to site: %s"\
-                 % (surface, site)
+        string = "Surface: %s | Translation made to site: %.2f, %.2f, %.2f"\
+                 % (surface, T[0], T[1], T[2])
         infoPrint(string)
 
     return T, site
@@ -745,47 +720,6 @@ def save_fig(filename = "Interface_figure.pdf", format = "pdf", dpi = 100, verbo
         infoPrint(string)
 
 
-def load_NN_array(filename):
-    """Function for loading data from an NN array
-
-    filename = str, name of the file containing the NN data
-    """
-    
-    with open(filename, 'r') as f:
-        data = np.loadtxt(f)
-
-
-    """Unpack the first 3 fields"""
-    interface = data[:, 0].astype(np.int)
-    translation = data[:, 1].astype(np.int)
-    element = data[:, 2].astype(np.int)
-
-    """Pick out the mean values and the standard deviations"""
-    NN = np.int((data.shape[1] - 3) / 2)
-    mean = data[:, 3 : NN + 3]
-    std = data[:, NN + 3:]
-
-    si = np.argsort(interface)
-
-    return mean, std, interface, translation, element
-
-
-def get_NN_count(filename, cutoff = 3.8):
-    """Function for getting the nr of NN within a specified cutoff
-
-    filename = str, name of the file containing the NN data
-
-    cutoff = float, Length cutoff for the NN count
-    """
-
-    mean, std, i_data, t_data, e_data = load_NN_array(filename)
-
-    count = np.sum(mean < cutoff, axis = 1)
-    count = np.reshape(count, (-1, np.max(t_data) + 1))
-
-    return count
-    
-
 def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
             format = "pdf", dpi = 100, verbose = 1, **kwargs):
     """Function for plotting NN data from NN arrays
@@ -821,21 +755,12 @@ def plotNNC(filename, idx, trans = 0, row = 1, col = 1, N = 1, save = False,\
     hFig = plt.figure()
     hAx = plt.subplot(row, col, N)
 
-    """Set some defaults"""
-    ls = kwargs.pop("linestyle", "--")
-    lw = kwargs.pop("linewidth", 0.5)
-    m = kwargs.pop("marker", "o")
-    ms = kwargs.pop("markersize", 4)
-    cs = kwargs.pop("capsize", 2)
-    elw = kwargs.pop("elinewidth", 1)
-
     for i in idx:
         for t in trans:
             y = mean[i_data == i, :][t_data[i_data == i] == t, :]
             yerr = std[i_data == i, :][t_data[i_data == i] == t, :]
 
-            hAx.errorbar(x, y = y[0, :], yerr = yerr[0, :], linestyle = ls, linewidth = lw,\
-                         marker = m, markersize = ms, capsize = cs, elinewidth = elw,\
+            hAx.errorbar(x, y = y[0, :], yerr = yerr[0, :],\
                          label = "I-%i, T-%i" % (i, t), **kwargs)
 
     hAx.set_xlabel("Neighbor")
