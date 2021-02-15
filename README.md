@@ -42,7 +42,7 @@ matplotlib (3.3.2)
 They easiest way of working with the package and setting up interface combinations
 and analyzing data is from an ipython terminal. To get all base packages needed 
 to run this package use e.g. the anaconda distribution where all are included.
-Add the package to you path or start the ipython terminal in teh folder where 
+Add the package to you path or start the ipython terminal in the folder where 
 interfaceBuilder is keept.
  
 To test building a collection of interfaces do the following
@@ -129,6 +129,18 @@ Again plots the angle against the mean absolute strain but with the nr of atoms 
 to the atoms / area in the unstrained case, above 1 denser than usual below 1 less dense then usual. Using the plasma colormap.
 
 Write i.plotProperty? to see supported plot options. And write i.getData? to see all available keywords
+```
+To add an alternative base to reflect a relaxed bottom surface when switching form e.g. LAMMPS --> VASP do the following.
+It will load the relaxed structures rom the POSCAR type files stored in the structures folder.
+```
+i.addAltBase(from_file = ["structures/bcc_w_100.vasp", "structures/bcc_w_110.vasp"], format = "vasp")
+```
+To display the difference in strain due to the different basis do the following to show the 50 first interfaces as currently sorted
+and add the difference between the two as an extra y axis. ab = [1] specifies that the variable at index 1 should use the alternative
+base. This workes for any property that is affected by the change in base, e.g. area, cell vectors etc. Available variables or var are
+the same as for the properties. 
+```
+i.compareInterfaces(var = ["eps_mas", "eps_mas"], delta = True, ab = [1], idx = range(50))
 ```
 someValues = np.random.random(500)
 i.plotProperty(x = "angle", y  = "other", other = someValues, z = "density", idx = range(500), colormap = "plasma")
