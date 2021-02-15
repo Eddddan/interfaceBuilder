@@ -3,7 +3,9 @@
 Package for building and analyzing atomic interfaces. The process of finding interfaces
 is based on the approach described in J. Phys.: Condens. Matter 29 (2017) 185901 (7pp)[1]
 with added freedom to construct any specific match of cell paramters or restrain the search
-to specific paramters of interest. Beyond this the package contains a large number of tools
+to specific paramters of interest. Built to allow large scale sreening of interfaces
+by making it easy to work with entire sets of discovered interface matches.
+Beyond this the package contains a large number of tools
 to analyze and evaluate the interface data set as well as allow easy exporting of interfaces
 and the corresponding surfaces to common simulation file formats (VASP,LAMMPS,EON). For furter
 analysis calculated paramteres such as work of sepparation and interfacial energy can be 
