@@ -131,7 +131,7 @@ to the atoms / area in the unstrained case, above 1 denser than usual below 1 le
 Write i.plotProperty? to see supported plot options. And write i.getData? to see all available keywords
 
 To add an alternative base to reflect a relaxed bottom surface when switching form e.g. LAMMPS --> VASP do the following.
-It will load the relaxed structures rom the POSCAR type files stored in the structures folder. The new base is always added in a pair 
+It will load the relaxed structures from the POSCAR type files stored in the structures folder. The new base is always added in a pair 
 of the [bottom, top] surfaces respectively and adding a new one overwrites the old. To export a structure using the alternative base
 add the keyword ab = True to the exportInterface or exportStructure functions.
 ```
