@@ -129,23 +129,30 @@ Again plots the angle against the mean absolute strain but with the nr of atoms 
 to the atoms / area in the unstrained case, above 1 denser than usual below 1 less dense then usual. Using the plasma colormap.
 
 Write i.plotProperty? to see supported plot options. And write i.getData? to see all available keywords
-```
+
 To add an alternative base to reflect a relaxed bottom surface when switching form e.g. LAMMPS --> VASP do the following.
-It will load the relaxed structures rom the POSCAR type files stored in the structures folder.
+It will load the relaxed structures rom the POSCAR type files stored in the structures folder. The new base is always added in a pair 
+of the [bottom, top] surfaces respectively and adding a new one overwrites the old. To export a structure using the alternative base
+add the keyword ab = True to the exportInterface or exportStructure functions.
 ```
 i.addAltBase(from_file = ["structures/bcc_w_100.vasp", "structures/bcc_w_110.vasp"], format = "vasp")
 ```
 To display the difference in strain due to the different basis do the following to show the 50 first interfaces as currently sorted
 and add the difference between the two as an extra y axis. ab = [1] specifies that the variable at index 1 should use the alternative
-base. This workes for any property that is affected by the change in base, e.g. area, cell vectors etc. Available variables or var are
-the same as for the properties. 
+base. This workes for any property that is affected by the change in base, e.g. area, cell vectors etc. Available variables for var are
+the same as for the plot properties function. 
 ```
 i.compareInterfaces(var = ["eps_mas", "eps_mas"], delta = True, ab = [1], idx = range(50))
+```
+The plot property function can specify several x/y and x/y/z pairs as well and can also use the ab keyword to plot the specified index
+using the alternative base if such a base have been added.
+```
+i.plotProperty(x = ["angle", "angle"], y = ["eps_mas", "eps_mas"], z = ["density", "density"], ab = [1], idx = range(500), colormap = "plasma", m = ["o", "^"], ms = 5)
 ```
 someValues = np.random.random(500)
 i.plotProperty(x = "angle", y  = "other", other = someValues, z = "density", idx = range(500), colormap = "plasma")
 ```
-Plots angle against the custom set of values contained in the someValues array and supplied with the other keyword with the density once again colorcoded to the colormap. This is to allow any specially calculated property to be easily ploted against other paramerters. The length of the custom data must match the length of the idx parater or the total length of the interface dataset if idx is omitted.
+Plots angle against the custom set of values contained in the someValues array and supplied with the other keyword with the density once again colorcoded to the colormap. This is to allow any specially calculated property to be easily ploted against other paramerters. The length of the custom data must match the length of the idx parameter or the total length of the interface dataset if idx is omitted.
 ```
 i.matchCells(M = [2, 0], N = [0, 3], target = [[2, 0], [1, 3]])
 ```
