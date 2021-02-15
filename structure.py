@@ -15,9 +15,6 @@ class Structure():
     Single time snapshot.
     """
 
-    __slots__ = ['cell', 'pos', 'type_n', 'type_i', 'idx',\
-                 'mass', 'frozen', 'filename', 'pos_type']
-
     def __init__(self, 
                  cell = None,\
                  pos = None,\
@@ -549,14 +546,6 @@ class Structure():
         dist_std = np.std(distance, axis = 0)
 
         return dist_mean, dist_std
-
-
-
-    def getNearestAngles(self, idx, idx_to, verbose = 1):
-        """Function for getting the angles between specified atoms
-           to specified atoms"""
-
-        print("Get angles")
 
 
 

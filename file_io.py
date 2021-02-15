@@ -598,4 +598,3 @@ def writeData(filename, atoms, format = "eon", sd = False, direct = False, verbo
     else:
         print("Unrecognized file format")
         sys.exit()
-

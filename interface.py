@@ -1718,11 +1718,6 @@ class Interface():
             string = "Translation: %i, x: %5.2f, y: %5.2f, Site name: %s" % (t, trans[0], trans[1], site) 
             ut.infoPrint(string)
 
-
-    def plotTranslations(self, surface, translation = None):
-        """Function for plotting specified translations"""
-        print("Unfinished")
-
         
     def printInterfaces(self, idx = None, flag = None, anchor = ""):
         """Print info about found interfaces
@@ -2142,22 +2137,22 @@ class Interface():
         if eps == "eps_11":
             hb = hAx.hexbin(np.abs(self.eps_11[idx]) * 100, self.atoms[idx], cmap = cm,\
                             xscale = "log", yscale = "log", mincnt = 1, **kwargs)
-            x_label = "Strain $abs(\epsilon_{11})$, (%)"
+            x_label = "$abs(\epsilon_{11})$, (%)"
 
         elif eps == "eps_22":
             hb = hAx.hexbin(np.abs(self.eps_22[idx]) * 100, self.atoms[idx], cmap = cm,\
                             xscale = "log", yscale = "log", mincnt = 1, **kwargs)
-            x_label = "Strain $abs(\epsilon_{22})$, (%)"
+            x_label = "$abs(\epsilon_{22})$, (%)"
 
         elif eps == "eps_12":
             hb = hAx.hexbin(np.abs(self.eps_12[idx]) * 100, self.atoms[idx], cmap = cm,\
                             xscale = "log", yscale = "log", mincnt = 1, **kwargs)
-            x_label = "Strain $abs(\epsilon_{12})$, (%)"
+            x_label = "$abs(\epsilon_{12})$, (%)"
 
         else:
             hb = hAx.hexbin(self.eps_mas[idx] * 100, self.atoms[idx], cmap = cm,\
                             xscale = "log", yscale = "log", mincnt = 1, **kwargs)
-            x_label = "Strain $\epsilon_{mas}$, (%)"
+            x_label = "$\epsilon_{mas}$, (%)"
 
         if handle: return
 
@@ -2166,7 +2161,7 @@ class Interface():
             ut.infoPrint(string)
 
         hAx.set_xlabel(x_label)
-        hAx.set_ylabel("Atoms")
+        hAx.set_ylabel("Nr of Atoms")
         cb = plt.colorbar(hb, ax = hAx)
         cb.set_label("Counts")
 
@@ -2250,7 +2245,7 @@ class Interface():
             x_label = "$|\epsilon_{12}|$, (%)"
             if verbose > 0: print("Showing absolute value of %s" % (eps))
         else:
-            x_label = "$(|\epsilon_{11}|+|\epsilon_{22}|+|\epsilon_{12}|)/3$, (%)"
+            x_label = "$\epsilon_{mas}$, (%)"
             strain = self.eps_mas[idx]
 
         if verbose > 0:
@@ -3427,7 +3422,7 @@ class Interface():
     def plotCorrCoef(self, var, idx = None, translation = None, other = None,\
                          verbose = 1, cmap = "bwr", save = False, dpi = 100, format = "pdf",\
                          vmin = -1, vmax = 1, version = "pearson", rho = False, round = 2,\
-                         ab = [], figsize = None):
+                         ab = []):
         """Function to plot the covariance matrix or the supplied variables
 
         For available values for "var" see getData method
@@ -3459,19 +3454,15 @@ class Interface():
         if "both".startswith(version.lower()):
             row = 1; col = 2
             ver = ["Pearson", "Spearman"]
-            #hFig = plt.figure(figsize = (11, 4.75))
+            hFig = plt.figure(figsize = (11, 4.75))
         elif "pearson".startswith(version.lower()):
             row = 1; col = 1
             ver = ["Pearson"]
-            #hFig = plt.figure(figsize = (8, 6.5))
+            hFig = plt.figure(figsize = (8, 6.5))
         elif "spearman".startswith(version.lower()):
             row = 1; col = 1
             ver = ["Spearman"]
-            #hFig = plt.figure(figsize = (8, 6.5))
-        if figsize is None:    
-            hFig = plt.figure()
-        else:
-            hFig = plt.figure(figsize = figsize)
+            hFig = plt.figure(figsize = (8, 6.5))
 
         v = 0
         for i in range(row * col):
@@ -3493,8 +3484,6 @@ class Interface():
             hAx.set_yticklabels(lbl)
 
             plt.setp(hAx.get_xticklabels(), rotation = 45, ha = "right",
-                     rotation_mode = "anchor")
-            plt.setp(hAx.get_yticklabels(), rotation = 30, ha = "right",
                      rotation_mode = "anchor")
 
             if (col * row == 1) or ((i + 1) == col * row):
