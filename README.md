@@ -151,6 +151,7 @@ using the alternative base if such a base have been added.
 ```
 i.plotProperty(x = ["angle", "angle"], y = ["eps_mas", "eps_mas"], z = ["density", "density"], ab = [1], idx = range(500), colormap = "plasma", m = ["o", "^"], ms = 5)
 ```
+```
 someValues = np.random.random(500)
 i.plotProperty(x = "angle", y  = "other", other = someValues, z = "density", idx = range(500), colormap = "plasma")
 ```
