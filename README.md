@@ -8,7 +8,7 @@ by making it easy to work with entire sets of discovered interface matches.
 Beyond this the package contains a large number of tools
 to analyze and evaluate the interface data set as well as allow easy exporting of interfaces
 and the corresponding surfaces to common simulation file formats (VASP,LAMMPS,EON). For furter
-analysis calculated paramteres such as work of sepparation and interfacial energy can be 
+analysis paramteres calculated elsewere such as work of separation and interfacial energy can be 
 loaded back into the data set and combined with the original interface data. 
 
 This project is licensed under the terms of the MIT license.
