@@ -137,7 +137,7 @@ It will load the relaxed structures from the POSCAR type files stored in the str
 of the [bottom, top] surfaces respectively and adding a new one overwrites the old. To export a structure using the alternative base
 add the keyword ab = True to the exportInterface or exportStructure functions.
 ```
-i.addAltBase(from_file = [<path_to_bottom_structure>, <path_to_top_structure>], format = "vasp")
+i.addAltBase(from_file = ["structures/bcc_w_100.vasp", "structures/bcc_w_110.vasp"], format = "vasp")
 ```
 To display the difference in strain due to the different basis do the following to show the 50 first interfaces as currently sorted
 and add the difference between the two as an extra y axis. ab = [1] specifies that the variable at index 1 should use the alternative
