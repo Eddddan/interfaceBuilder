@@ -5,20 +5,17 @@ import numpy as np
 
 from interfaceBuilder import utils as ut
 
-def len2mat(vec, ang, prec = 10):
+def len2mat(vec, ang):
     """
     Transforms cell lengths and angles to cell vectors.
 
     vec in order [a, b, c]
 
     ang in order [alpha, beta, gamma], (conventionally defined)
-
-    prec = round to this precision. Sin and Cos are numeric i.e.
-           cos(90) is ~X*10^-17 (something like that...)
     """
 
-    """Fix precision as sin and cos are numeric"""
-    prec = 7
+    """Round it to have e.g. cos(90) be 0 and not XE-17"""
+    prec = 10
 
     """M = [A, B, C]"""
     mat = np.zeros((3, 3))
@@ -39,7 +36,7 @@ def len2mat(vec, ang, prec = 10):
     
 
 
-def mat2LammpsBox(mat, prec = 10):
+def mat2LammpsBox(mat):
     """Function for transforming a set of basis vectors to
        a lammps simulation box"""
 
