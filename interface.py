@@ -221,16 +221,19 @@ class Interface():
         means the best matches to that angle or any of the angles in the case of an array.
         """
 
-        """Favor cells by first making the desired sorting and then removing duplicates"""
+        """Favor cells by first making the desired sorting and then removing duplicates
+        In relevant cases lexsort by the number of atoms as well"""
         if isinstance(sort, (int, np.integer, float)):
             p = np.abs(self.getBaseAngles(cell = 1) - np.deg2rad(sort))
-            si = np.argsort(p)
+            #si = np.argsort(p)
+            si = np.lexsort((self.atoms, p))
             self.indexSortInterfaces(index = si)
             string = "Favoring: Specified angle %.2f deg" % sort
         elif isinstance(sort, (list, np.ndarray)):
             ang = np.tile(self.getBaseAngles(cell = 1), (np.shape(sort)[0], 1))
             p = np.abs(ang - np.deg2rad(np.array(sort))[:, None])
-            si = np.argsort(np.min(p, axis = 0))
+            #si = np.argsort(np.min(p, axis = 0))
+            si = np.lexsort((self.atoms, np.min(p, axis = 0)))
             self.indexSortInterfaces(index = si)
             string = "Favoring: Specified angles %s deg" % (", ".join([str(i) for i in sort]))
         elif sort.lower() == "length":
@@ -240,13 +243,15 @@ class Interface():
             string = "Favoring: Minimum Circumference"
         elif sort.lower() == "angle_right":
             p = np.abs(np.pi / 2 - self.getBaseAngles(cell = 1))
-            si = np.argsort(p)
+            #si = np.argsort(p)
+            si = np.lexsort((self.atoms, p))
             self.indexSortInterfaces(index = si)
             string = "Favoring: Right Angles"
         elif sort.lower() == "angle_same":
             p = np.abs(ut.getCellAngle(self.base_1[:2, :2], verbose = verbose) -\
                        self.getBaseAngles(cell = 1))
-            si = np.argsort(p)
+            #si = np.argsort(p)
+            si = np.lexsort((self.atoms, p))
             self.indexSortInterfaces(index = si)
             string = "Favoring: Base Angle Match"
         else:
@@ -2441,7 +2446,10 @@ class Interface():
             ut.infoPrint(string)
             return
 
-        if type(m) == str: m = [m]
+        m = kwargs.pop("marker", m)
+        ls = kwargs.pop("linestyle", "none")
+        ms = kwargs.pop("markersize", ms)
+
         if len(m) == 1: m = m * len(x)
         if isinstance(ab, (int, np.integer)): ab = [ab]
 
@@ -2466,9 +2474,6 @@ class Interface():
         else:
             hAx = ax
 
-        ls = kwargs.pop("linestyle", "none")
-        ms = kwargs.pop("markersize", ms)
-
         if z_data is None:
 
             kwargs.pop("vmin", None)
@@ -2485,10 +2490,10 @@ class Interface():
             if leg:
                 ncol = 1
                 if len(x_leg) > len(y_leg):
-                    if len(x_leg) > 4: ncol = 2
+                    if len(x_leg) > 5: ncol = 2
                     hAx.legend(x_leg, ncol = ncol)
                 else:
-                    if len(y_leg) > 4: ncol = 2
+                    if len(y_leg) > 5: ncol = 2
                     hAx.legend(y_leg, ncol = ncol)
 
         else:
@@ -2550,7 +2555,10 @@ class Interface():
         hAx.set_xscale(xscale)
         hAx.set_xlabel(x_lbl[0])
         hAx.set_ylabel(y_lbl[0])
-        hAx.set_title(self.filename)
+        if title is None:
+            hAx.set_title(self.filename)
+        else:
+            hAx.set_title(title)
 
         if handle: 
             return
@@ -2693,7 +2701,7 @@ class Interface():
 
         ls = kwargs.pop("linestyle", ls)
         m = kwargs.pop("marker", m)
-        if type(m) == str: m = [m] * len(data)
+        if len(m) == 1: m = m * len(data)
         ms = kwargs.pop("markersize", ms)
         lw = kwargs.pop("linewidth", 0.6)
 
@@ -2718,7 +2726,7 @@ class Interface():
 
         xl = "Index"
         if shrink_idx:
-            if len(idx) > 20: plt.xticks(rotation = 90)
+            if len(idx) > 10: plt.xticks(rotation = 90)
             hAx.set_xticks(range(np.shape(x)[0]))
             hAx.set_xticklabels([str(i) for i in idx])
         elif not true_idx:
